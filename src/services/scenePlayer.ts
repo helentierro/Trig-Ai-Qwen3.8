@@ -1,7 +1,7 @@
 import { useCanvasStore } from '../stores/canvasStore';
 import type { SceneScript } from '../types/ai';
 
-const ease = (t: number) => 1 - Math.pow(1 - t, 3); // ease-out cúbico
+const ease = (t: number) => 1 - Math.pow(1 - t, 3);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function tween(ms: number, fn: (t: number) => void): Promise<void> {
@@ -18,7 +18,7 @@ function tween(ms: number, fn: (t: number) => void): Promise<void> {
 }
 
 // TTS de navegador como placeholder (luego ElevenLabs, misma interfaz)
-function speak(text: string): Promise<void> {
+export function speak(text: string): Promise<void> {
   return new Promise((res) => {
     if (!('speechSynthesis' in window)) return res();
     const u = new SpeechSynthesisUtterance(text);
@@ -60,7 +60,7 @@ export async function playScene(script: SceneScript) {
         if (!s.aiCursor.visible) s.setAiCursor(P);
         await tween(step.ms ?? 900, (t) => {
           s.setDrawn(step.id, t);
-          s.setAiCursor({ x: P.x + (Q.x - P.x) * t, y: P.y + (Q.y - P.y) * t }); // el cursor es el lápiz
+          s.setAiCursor({ x: P.x + (Q.x - P.x) * t, y: P.y + (Q.y - P.y) * t });
         });
         break;
       }
@@ -81,7 +81,6 @@ export async function playScene(script: SceneScript) {
   st().setPlaying(false);
 }
 
-// La IA construye el triángulo ACTUAL (el que el niño tenga en pantalla)
 export function buildTriangleScript(): SceneScript {
   const { points, measures } = useCanvasStore.getState();
   const deg = Math.round(measures.angleDeg);

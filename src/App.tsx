@@ -1,7 +1,9 @@
 import { TriangleCanvas } from './components/canvas/TriangleCanvas';
 import { AlgebraPanel } from './components/panel/AlgebraPanel';
+import { ChatPanel } from './components/chat/ChatPanel';
 import { useCanvasStore } from './stores/canvasStore';
 import { runConstruction } from './services/scenePlayer';
+import { useTeachableMoments } from './hooks/useTeachableMoments';
 
 const btn: React.CSSProperties = {
   padding: '6px 12px', borderRadius: 8, border: '1px solid #1f2630',
@@ -9,6 +11,8 @@ const btn: React.CSSProperties = {
 };
 
 export default function App() {
+  useTeachableMoments(); // la IA observa el juego desde el arranque
+
   const m = useCanvasStore((s) => s.measures);
   const setAngleDeg = useCanvasStore((s) => s.setAngleDeg);
   const setBase = useCanvasStore((s) => s.setBase);
@@ -35,6 +39,7 @@ export default function App() {
         <div style={{ flex: 1, position: 'relative' }}>
           <TriangleCanvas />
         </div>
+        <ChatPanel />
       </div>
 
       <footer style={{ borderTop: '1px solid #1f2630', padding: '10px 16px', display: 'flex', gap: 24, alignItems: 'center', fontFamily: 'monospace', fontSize: 13 }}>

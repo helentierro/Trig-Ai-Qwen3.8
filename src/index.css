@@ -3,6 +3,10 @@ html, body, #root { height: 100%; margin: 0; }
 body { background: #0d1117; color: #e2e8f0; font-family: system-ui, sans-serif; }
 input[type='range'] { accent-color: #38bdf8; }
 
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #243040; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
 @keyframes pulseGlow { 0%, 100% { stroke-opacity: .15; } 50% { stroke-opacity: .7; } }
 .glow-pulse { animation: pulseGlow .8s ease-in-out infinite; }
 
