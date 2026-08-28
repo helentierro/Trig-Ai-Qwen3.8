@@ -11,6 +11,7 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
   const [panning, setPanning] = useState(false);
   const hoverId = useCanvasStore((s) => s.hoverId);
   const dragId = useCanvasStore((s) => s.dragId);
+  const tool = useCanvasStore((s) => s.tool);
 
   const localPt = (e: { clientX: number; clientY: number }): Vec2 => {
     const r = ref.current!.getBoundingClientRect();
@@ -19,7 +20,7 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
 
   const hitTest = (pt: Vec2): string | null => {
     const { points, camera, playing } = useCanvasStore.getState();
-    if (playing) return null; // mientras la IA construye, el niño mira (pan/zoom sí)
+    if (playing) return null;
     for (const p of Object.values(points)) {
       if (!p.visible) continue;
       const sp = worldToScreen(p.pos, camera);
@@ -32,23 +33,35 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
     ref.current?.setPointerCapture(e.pointerId);
     const pt = localPt(e);
     pointers.current.set(e.pointerId, pt);
+    const st = useCanvasStore.getState();
+
     if (pointers.current.size === 2) {
-      if (gesture.current?.type === 'drag') useCanvasStore.getState().endDrag();
+      if (gesture.current?.type === 'drag') st.endDrag();
       gesture.current = { type: 'pinch' };
       setPanning(false);
-    } else {
-      const id = hitTest(pt);
-      if (id) { useCanvasStore.getState().beginDrag(id); gesture.current = { type: 'drag' }; }
-      else { gesture.current = { type: 'pan' }; setPanning(true); }
+      return;
     }
+
+    if (st.tool !== 'move') {
+      const hit = hitTest(pt);
+      if (st.tool === 'point') { if (!hit) st.addPointAt(screenToWorld(pt, st.camera)); }
+      else if (hit) st.clickPoint(hit);
+      gesture.current = null;
+      return;
+    }
+
+    const id = hitTest(pt);
+    if (id) { st.beginDrag(id); gesture.current = { type: 'drag' }; }
+    else { gesture.current = { type: 'pan' }; setPanning(true); }
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const pt = localPt(e);
     const prev = pointers.current.get(e.pointerId);
     const st = useCanvasStore.getState();
+    st.setCursorWorld(screenToWorld(pt, st.camera));
 
-    if (!prev) { st.setHover(hitTest(pt)); return; }
+    if (!prev) { st.setHover(st.tool === 'move' ? hitTest(pt) : null); return; }
 
     if (gesture.current?.type === 'pinch' && pointers.current.size >= 2) {
       const [[id1, a], [id2, b]] = [...pointers.current.entries()];
@@ -87,11 +100,15 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
       const st = useCanvasStore.getState();
       st.zoomAtScreen({ x: e.clientX - r.left, y: e.clientY - r.top }, st.camera.zoom * Math.exp(-e.deltaY * 0.0015));
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { const st = useCanvasStore.getState(); st.setTool('move'); st.cancelPending(); }
+    };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    window.addEventListener('keydown', onKey);
+    return () => { el.removeEventListener('wheel', onWheel); window.removeEventListener('keydown', onKey); };
   }, []);
 
-  const cursor = dragId ? 'grabbing' : panning ? 'grabbing' : hoverId ? 'grab' : 'default';
+  const cursor = tool !== 'move' ? 'crosshair' : dragId ? 'grabbing' : panning ? 'grabbing' : hoverId ? 'grab' : 'default';
 
   return (
     <div
@@ -100,7 +117,7 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onPointerLeave={() => useCanvasStore.getState().setHover(null)}
+      onPointerLeave={() => { useCanvasStore.getState().setHover(null); useCanvasStore.getState().setCursorWorld(null); }}
       onDoubleClick={() => useCanvasStore.getState().fitView()}
       style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor, overflow: 'hidden', userSelect: 'none' }}
     >

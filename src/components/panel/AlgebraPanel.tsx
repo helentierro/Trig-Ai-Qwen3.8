@@ -18,7 +18,9 @@ function Row({ id, swatch, title, value, canHide }: {
   const visible = useCanvasStore((s) => {
     const p = s.points[id];
     const g = s.segments.find((x) => x.id === id);
-    return p ? p.visible : g ? g.visible : true;
+    const c = s.circles.find((x) => x.id === id);
+    const obj = p ?? g ?? c;
+    return obj ? obj.visible : true;
   });
   const active = hoverId === id || selectedId === id || pulseId === id;
 
@@ -52,7 +54,9 @@ function Row({ id, swatch, title, value, canHide }: {
 export function AlgebraPanel() {
   const points = useCanvasStore((s) => s.points);
   const segments = useCanvasStore((s) => s.segments);
+  const circles = useCanvasStore((s) => s.circles);
   const m = useCanvasStore((s) => s.measures);
+  const hasTriangle = useCanvasStore((s) => s.hasTriangle);
   const pulse = useCanvasStore((s) => s.pulse);
   const [open, setOpen] = useState(true);
 
@@ -88,22 +92,39 @@ export function AlgebraPanel() {
       {segments.map((g) => (
         <Row key={g.id} id={g.id} canHide
           swatch={<span style={{ width: 14, height: 3, background: g.color, borderRadius: 2, flexShrink: 0 }} />}
-          title={`${g.id} = Seg(${g.a}, ${g.b})`} value={fmt(len[g.id])} />
+          title={`${g.id} = Seg(${g.a}, ${g.b})`} value={len[g.id] !== undefined ? fmt(len[g.id]) : undefined} />
       ))}
 
-      <H>Medidas</H>
-      <Row id="angleO" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`} />
-      <Row id="angleB" swatch={<span style={{ color: '#fbbf24' }}>∟</span>} title="ángulo en B" value="90°" />
-      <Row id="angleA" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="α (en A)" value={`${fmt(90 - m.angleDeg)}°`} />
-      <Row id="area" swatch={<span style={{ color: '#38bdf8' }}>▦</span>} title="área" value={fmt(m.area)} />
+      {circles.length > 0 && (
+        <>
+          <H>Círculos</H>
+          {circles.map((c) => (
+            <Row key={c.id} id={c.id} canHide
+              swatch={<span style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid #94a3b8', flexShrink: 0 }} />}
+              title={`${c.id} = Círc(${c.c})`} value={`r ${fmt(c.r)}`} />
+          ))}
+        </>
+      )}
 
-      <button onClick={demoIA} style={{ margin: '10px 10px 4px', padding: 8, borderRadius: 8, border: '1px solid #1f2630', background: '#111826', color: '#38bdf8', cursor: 'pointer', fontSize: 12 }}>
-        ✨ Simular IA: «mira la figura»
-      </button>
-
-      <div style={{ padding: '8px 10px', color: '#64748b', fontSize: 11, fontFamily: 'monospace', borderTop: '1px solid #141a23', marginTop: 6 }}>
-        {fmt(m.angleDeg)}° + 90° + {fmt(90 - m.angleDeg)}° = 180° ✔
-      </div>
+      {hasTriangle ? (
+        <>
+          <H>Medidas</H>
+          <Row id="angleO" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`} />
+          <Row id="angleB" swatch={<span style={{ color: '#fbbf24' }}>∟</span>} title="ángulo en B" value="90°" />
+          <Row id="angleA" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="α (en A)" value={`${fmt(90 - m.angleDeg)}°`} />
+          <Row id="area" swatch={<span style={{ color: '#38bdf8' }}>▦</span>} title="área" value={fmt(m.area)} />
+          <button onClick={demoIA} style={{ margin: '10px 10px 4px', padding: 8, borderRadius: 8, border: '1px solid #1f2630', background: '#111826', color: '#38bdf8', cursor: 'pointer', fontSize: 12 }}>
+            ✨ Simular IA: «mira la figura»
+          </button>
+          <div style={{ padding: '8px 10px', color: '#64748b', fontSize: 11, fontFamily: 'monospace', borderTop: '1px solid #141a23', marginTop: 6 }}>
+            {fmt(m.angleDeg)}° + 90° + {fmt(90 - m.angleDeg)}° = 180° ✔
+          </div>
+        </>
+      ) : (
+        <div style={{ padding: '10px', color: '#64748b', fontSize: 11.5, lineHeight: 1.5 }}>
+          Este mundo no tiene triángulo rectángulo.<br />Usa 🧹 para volver, o construye con 🛠.
+        </div>
+      )}
     </aside>
   );
 }

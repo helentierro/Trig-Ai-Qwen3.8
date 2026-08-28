@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
-import { askTutor } from '../../services/localTutor';
+import { askTutor } from '../../services/aiService';
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
@@ -13,7 +13,7 @@ export function ChatPanel() {
     const t = text.trim();
     if (!t) return;
     setText('');
-    askTutor(t);
+    void askTutor(t);
   };
 
   return (

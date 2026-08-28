@@ -17,7 +17,6 @@ function tween(ms: number, fn: (t: number) => void): Promise<void> {
   });
 }
 
-// TTS de navegador como placeholder (luego ElevenLabs, misma interfaz)
 export function speak(text: string): Promise<void> {
   return new Promise((res) => {
     if (!('speechSynthesis' in window)) return res();
@@ -56,7 +55,8 @@ export async function playScene(script: SceneScript) {
       case 'segment': {
         const seg = s.segments.find((g) => g.id === step.id);
         if (!seg) break;
-        const P = s.points[seg.a].pos, Q = s.points[seg.b].pos;
+        const P = s.points[seg.a]?.pos, Q = s.points[seg.b]?.pos;
+        if (!P || !Q) break;
         if (!s.aiCursor.visible) s.setAiCursor(P);
         await tween(step.ms ?? 900, (t) => {
           s.setDrawn(step.id, t);
@@ -73,6 +73,10 @@ export async function playScene(script: SceneScript) {
         if (st().voiceOn) await speak(step.text);
         else await sleep(Math.min(900 + step.text.length * 35, 4200));
         break;
+      case 'world':
+        s.loadWorld(step.id);
+        await sleep(500);
+        break;
       case 'wait':
         await sleep(step.ms);
         break;
@@ -81,7 +85,9 @@ export async function playScene(script: SceneScript) {
   st().setPlaying(false);
 }
 
+// BLINDADO: si no hay triángulo (estás en el puente, el GPS…), vuelve al triángulo solo
 export function buildTriangleScript(): SceneScript {
+  if (!useCanvasStore.getState().hasTriangle) useCanvasStore.getState().loadWorld(null);
   const { points, measures } = useCanvasStore.getState();
   const deg = Math.round(measures.angleDeg);
   return [
@@ -106,6 +112,7 @@ export function buildTriangleScript(): SceneScript {
 export function runConstruction() {
   const st = useCanvasStore.getState();
   if (st.playing) return;
-  st.resetConstruction();
+  if (!st.hasTriangle) st.loadWorld(null);
+  useCanvasStore.getState().resetConstruction();
   void playScene(buildTriangleScript());
 }
