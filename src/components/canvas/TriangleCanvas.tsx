@@ -3,13 +3,13 @@ import { useCanvasStore } from '../../stores/canvasStore';
 import { niceGridStep, screenToWorld, worldToScreen } from '../../utils/coordinateTransform';
 import { InteractionLayer } from './InteractionLayer';
 
-const C = { bg: '#0d1117', grid: '#161b22', axis: '#30363d', text: '#8b949e', angle: '#fbbf24' };
+const C = { bg: '#0d1117', grid: '#161b22', axis: '#30363d', text: '#8b949e', angle: '#fbbf24', ia: '#a78bfa' };
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
 
 export function TriangleCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const s = useCanvasStore();
-  const { camera: cam, viewport, points, segments, measures, hoverId, dragId, snapBadge, selectedId, pulseId } = s;
+  const { camera: cam, viewport, points, segments, measures, hoverId, dragId, snapBadge, selectedId, pulseId, drawn, aiCursor, subtitle } = s;
 
   useEffect(() => {
     const el = wrapRef.current!;
@@ -44,7 +44,7 @@ export function TriangleCanvas() {
     if (y !== 0) gridEls.push(<text key={`ht${i}`} x={Math.min(Math.max(o.x, 4), viewport.w - 30) + 6} y={sy - 4} fill={C.text} fontSize={10}>{y.toFixed(dec)}</text>);
   }
 
-  // ── Triángulo vivo ──
+  // ── Triángulo vivo (con progreso de dibujo de la IA) ──
   const S = { O: worldToScreen(points.O.pos, cam), B: worldToScreen(points.B.pos, cam), A: worldToScreen(points.A.pos, cam) };
   const norm = (v: { x: number; y: number }) => { const l = Math.hypot(v.x, v.y) || 1; return { x: v.x / l, y: v.y / l }; };
   const u = norm({ x: S.O.x - S.B.x, y: S.O.y - S.B.y });
@@ -54,6 +54,7 @@ export function TriangleCanvas() {
   const th = (measures.angleDeg * Math.PI) / 180;
   const lit = (id: string) => hoverId === id || selectedId === id || pulseId === id;
   const vis = (id: string) => segments.find((g) => g.id === id)?.visible ?? true;
+  const done = (drawn['hyp'] ?? 1) >= 1; // marcadores y labels aparecen al terminar el dibujo
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', background: C.bg, userSelect: 'none' }}>
@@ -61,45 +62,51 @@ export function TriangleCanvas() {
         <svg width={viewport.w} height={viewport.h}>
           {gridEls}
 
-          {lit('area') && (
+          {done && lit('area') && (
             <polygon points={`${S.O.x},${S.O.y} ${S.B.x},${S.B.y} ${S.A.x},${S.A.y}`} fill="#38bdf8" fillOpacity={0.12} />
           )}
 
-          {/* lados con brillo cuando el panel o la IA los señala */}
-          {segments.filter((g) => g.visible).map((seg) => {
+          {/* lados: se trazan según el progreso drawn (el lápiz IA dibuja) */}
+          {segments.filter((g) => g.visible && (drawn[g.id] ?? 1) > 0).map((seg) => {
             const P = S[seg.a as 'O' | 'B' | 'A'];
-            const Q = S[seg.b as 'O' | 'B' | 'A'];
+            const Qf = S[seg.b as 'O' | 'B' | 'A'];
+            const t = drawn[seg.id] ?? 1;
+            const Q = { x: P.x + (Qf.x - P.x) * t, y: P.y + (Qf.y - P.y) * t };
             return (
               <g key={seg.id}>
-                {lit(seg.id) && (
-                  <line x1={P.x} y1={P.y} x2={Q.x} y2={Q.y} stroke={seg.color} strokeWidth={9} strokeLinecap="round"
+                {t >= 1 && lit(seg.id) && (
+                  <line x1={P.x} y1={P.y} x2={Qf.x} y2={Qf.y} stroke={seg.color} strokeWidth={9} strokeLinecap="round"
                         className={pulseId === seg.id ? 'glow-pulse' : undefined}
                         strokeOpacity={pulseId === seg.id ? undefined : 0.3} />
                 )}
-                <line x1={P.x} y1={P.y} x2={Q.x} y2={Q.y} stroke={seg.color} strokeWidth={lit(seg.id) ? 3.5 : 2.5} strokeLinecap="round" />
+                <line x1={P.x} y1={P.y} x2={Q.x} y2={Q.y} stroke={seg.color} strokeWidth={t >= 1 && lit(seg.id) ? 3.5 : 2.5} strokeLinecap="round" />
               </g>
             );
           })}
 
-          {/* marcador de ángulo recto en B */}
-          <path d={`M ${S.B.x + u.x * sz} ${S.B.y + u.y * sz} L ${S.B.x + (u.x + v.x) * sz} ${S.B.y + (u.y + v.y) * sz} L ${S.B.x + v.x * sz} ${S.B.y + v.y * sz}`}
-                fill="none" stroke={lit('angleB') ? C.angle : C.text} strokeWidth={1.5} />
+          {done && (
+            <path d={`M ${S.B.x + u.x * sz} ${S.B.y + u.y * sz} L ${S.B.x + (u.x + v.x) * sz} ${S.B.y + (u.y + v.y) * sz} L ${S.B.x + v.x * sz} ${S.B.y + v.y * sz}`}
+                  fill="none" stroke={lit('angleB') ? C.angle : C.text} strokeWidth={1.5} />
+          )}
 
-          {/* arco del ángulo θ en O */}
-          <path d={`M ${S.O.x + r} ${S.O.y} A ${r} ${r} 0 0 0 ${S.O.x + r * Math.cos(th)} ${S.O.y - r * Math.sin(th)}`}
-                fill="none" stroke={C.angle} strokeWidth={lit('angleO') ? 3.5 : 2} />
-          <text x={S.O.x + (r + 16) * Math.cos(th / 2)} y={S.O.y - (r + 16) * Math.sin(th / 2)} fill={C.angle} fontSize={13} fontFamily="monospace">
-            {fmt(measures.angleDeg)}°
-          </text>
+          {done && (
+            <path d={`M ${S.O.x + r} ${S.O.y} A ${r} ${r} 0 0 0 ${S.O.x + r * Math.cos(th)} ${S.O.y - r * Math.sin(th)}`}
+                  fill="none" stroke={C.angle} strokeWidth={lit('angleO') ? 3.5 : 2} />
+          )}
+          {done && (
+            <text x={S.O.x + (r + 16) * Math.cos(th / 2)} y={S.O.y - (r + 16) * Math.sin(th / 2)} fill={C.angle} fontSize={13} fontFamily="monospace">
+              {fmt(measures.angleDeg)}°
+            </text>
+          )}
 
-          {/* labels de lados (respetan visibilidad) */}
-          {vis('base') && <text x={(S.O.x + S.B.x) / 2} y={S.O.y + 20} fill="#38bdf8" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.base)}</text>}
-          {vis('height') && <text x={S.B.x + 24} y={(S.B.y + S.A.y) / 2} fill="#fb923c" fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
-          {vis('hyp') && <text x={(S.O.x + S.A.x) / 2 - 14} y={(S.O.y + S.A.y) / 2 - 10} fill="#e2e8f0" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
+          {done && vis('base') && <text x={(S.O.x + S.B.x) / 2} y={S.O.y + 20} fill="#38bdf8" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.base)}</text>}
+          {done && vis('height') && <text x={S.B.x + 24} y={(S.B.y + S.A.y) / 2} fill="#fb923c" fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
+          {done && vis('hyp') && <text x={(S.O.x + S.A.x) / 2 - 14} y={(S.O.y + S.A.y) / 2 - 10} fill="#e2e8f0" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
 
-          {/* vértices arrastrables con letra */}
-          {Object.values(points).filter((p) => p.visible).map((p) => {
+          {/* vértices con pop de aparición */}
+          {Object.values(points).filter((p) => p.visible && (drawn[p.id] ?? 1) > 0).map((p) => {
             const sp = S[p.id as 'O' | 'B' | 'A'];
+            const pop = drawn[p.id] ?? 1;
             const active = hoverId === p.id || dragId === p.id;
             const off = { O: { x: -18, y: 18 }, B: { x: 10, y: 18 }, A: { x: -5, y: -12 } }[p.id as 'O' | 'B' | 'A']!;
             return (
@@ -108,13 +115,35 @@ export function TriangleCanvas() {
                   <circle cx={sp.x} cy={sp.y} r={13} fill="none" stroke={selectedId === p.id ? '#fbbf24' : '#38bdf8'}
                           strokeOpacity={0.6} strokeWidth={2} className={pulseId === p.id ? 'glow-pulse' : undefined} />
                 )}
-                <circle cx={sp.x} cy={sp.y} r={active ? 8 : 6} fill={C.bg} stroke="#e2e8f0" strokeWidth={2.5} />
-                <text x={sp.x + off.x} y={sp.y + off.y} fill="#8b949e" fontSize={12} fontFamily="monospace">{p.id}</text>
+                <circle cx={sp.x} cy={sp.y} r={(active ? 8 : 6) * pop} fill={C.bg} stroke="#e2e8f0" strokeWidth={2.5} />
+                {pop >= 1 && <text x={sp.x + off.x} y={sp.y + off.y} fill="#8b949e" fontSize={12} fontFamily="monospace">{p.id}</text>}
               </g>
             );
           })}
+
+          {/* el lápiz de la IA */}
+          {aiCursor.visible && (() => {
+            const c = worldToScreen(aiCursor.pos, cam);
+            return (
+              <g style={{ pointerEvents: 'none' }}>
+                <path d={`M ${c.x} ${c.y} l 14 5 l -8 3 l -3 8 Z`} fill={C.ia} stroke="#fff" strokeWidth={1} />
+                <text x={c.x + 16} y={c.y + 20} fill={C.ia} fontSize={11} fontFamily="monospace" fontWeight={700}>IA</text>
+              </g>
+            );
+          })()}
         </svg>
       </InteractionLayer>
+
+      {subtitle && (
+        <div key={subtitle} className="subtitle" style={{
+          position: 'absolute', bottom: 34, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(17,24,38,0.92)', border: '1px solid #2b3648', color: '#e2e8f0',
+          padding: '8px 14px', borderRadius: 12, fontSize: 13, maxWidth: '70%', pointerEvents: 'none',
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          <span style={{ color: C.ia, fontWeight: 700 }}>IA</span> {subtitle}
+        </div>
+      )}
 
       {snapBadge && (
         <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#fbbf24', color: '#111', fontWeight: 700, fontFamily: 'monospace', padding: '4px 14px', borderRadius: 999, fontSize: 15, pointerEvents: 'none' }}>

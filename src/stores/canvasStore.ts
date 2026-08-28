@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { type Camera, type Vec2, clamp, niceGridStep, screenToWorld } from '../utils/coordinateTransform';
 
-// ── Scene graph: objetos con id, manipulables por el usuario Y por la IA ──
 export interface PointNode {
   id: string;
   pos: Vec2;
@@ -12,7 +11,6 @@ export interface PointNode {
 export interface SegmentNode { id: string; a: string; b: string; color: string; visible: boolean }
 export interface Measures { base: number; height: number; hyp: number; angleDeg: number; area: number }
 
-// ── Interaction bus: semilla de los "momentos enseñables" ─────────────────
 export type CanvasEvent =
   | { type: 'drag-start'; id: string }
   | { type: 'drag-end'; id: string; measures: Measures }
@@ -43,6 +41,8 @@ const initialPoints = (): Record<string, PointNode> => ({
   A: { id: 'A', pos: { x: 50, y: 50 * Math.tan(rad(30)) }, constraint: 'free', role: 'apice', visible: true },
 });
 
+const FULL_DRAWN = { O: 1, B: 1, A: 1, base: 1, height: 1, hyp: 1 };
+
 interface CanvasState {
   points: Record<string, PointNode>;
   segments: SegmentNode[];
@@ -55,6 +55,12 @@ interface CanvasState {
   pulseId: string | null;
   snapBadge: { label: string } | null;
   lockedAngle: number | null;
+  drawn: Record<string, number>;            // progreso de dibujo 0..1 por objeto
+  aiCursor: { pos: Vec2; visible: boolean }; // el lápiz de la IA
+  subtitle: string | null;
+  transcript: string[];
+  playing: boolean;
+  voiceOn: boolean;
 
   setViewport: (w: number, h: number) => void;
   fitView: () => void;
@@ -69,6 +75,12 @@ interface CanvasState {
   endDrag: () => void;
   setAngleDeg: (d: number) => void;
   setBase: (b: number) => void;
+  setDrawn: (id: string, t: number) => void;
+  setAiCursor: (pos: Vec2 | null) => void;
+  setSubtitle: (text: string | null) => void;
+  setPlaying: (b: boolean) => void;
+  setVoiceOn: (b: boolean) => void;
+  resetConstruction: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>()((set, get) => {
@@ -95,6 +107,12 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     pulseId: null,
     snapBadge: null,
     lockedAngle: null,
+    drawn: { ...FULL_DRAWN },
+    aiCursor: { pos: { x: 0, y: 0 }, visible: false },
+    subtitle: null,
+    transcript: [],
+    playing: false,
+    voiceOn: false,
 
     setViewport: (w, h) => set({ viewport: { w, h } }),
 
@@ -128,7 +146,6 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       return { points, segments: s.segments.map((g) => (g.id === id ? { ...g, visible: !g.visible } : g)) };
     }),
 
-    // El dedo de la IA: señala un objeto y brilla en canvas Y panel a la vez
     pulse: (id, ms = 1500) => {
       set({ pulseId: id });
       setTimeout(() => set((s) => (s.pulseId === id ? { pulseId: null } : {})), ms);
@@ -188,6 +205,26 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         A: { ...get().points.A, pos: { x: b, y: h } },
       };
       set({ points: pts, measures: measure(pts) });
+    },
+
+    setDrawn: (id, t) => set((s) => ({ drawn: { ...s.drawn, [id]: clamp(t, 0, 1) } })),
+    setAiCursor: (pos) => set((s) => ({ aiCursor: pos ? { pos, visible: true } : { ...s.aiCursor, visible: false } })),
+    setSubtitle: (text) => set((s) => ({
+      subtitle: text,
+      transcript: text ? [...s.transcript, text] : s.transcript,
+    })),
+    setPlaying: (b) => set({ playing: b }),
+    setVoiceOn: (b) => set({ voiceOn: b }),
+
+    resetConstruction: () => {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      set({
+        drawn: { O: 0, B: 0, A: 0, base: 0, height: 0, hyp: 0 },
+        subtitle: null,
+        selectedId: null,
+        pulseId: null,
+        aiCursor: { pos: { x: 0, y: 0 }, visible: false },
+      });
     },
   };
 });

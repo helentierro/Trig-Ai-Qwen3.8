@@ -5,3 +5,6 @@ input[type='range'] { accent-color: #38bdf8; }
 
 @keyframes pulseGlow { 0%, 100% { stroke-opacity: .15; } 50% { stroke-opacity: .7; } }
 .glow-pulse { animation: pulseGlow .8s ease-in-out infinite; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.subtitle { animation: fadeUp .3s ease-out; }

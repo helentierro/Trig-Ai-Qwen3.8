@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type PointerEvent as React
 import { useCanvasStore } from '../../stores/canvasStore';
 import { type Vec2, screenToWorld, worldToScreen } from '../../utils/coordinateTransform';
 
-const HIT_RADIUS = 18; // px táctiles generosos (tablet/niño)
+const HIT_RADIUS = 18;
 
 export function InteractionLayer({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -18,7 +18,8 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
   };
 
   const hitTest = (pt: Vec2): string | null => {
-    const { points, camera } = useCanvasStore.getState();
+    const { points, camera, playing } = useCanvasStore.getState();
+    if (playing) return null; // mientras la IA construye, el niño mira (pan/zoom sí)
     for (const p of Object.values(points)) {
       if (!p.visible) continue;
       const sp = worldToScreen(p.pos, camera);
@@ -47,7 +48,7 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
     const prev = pointers.current.get(e.pointerId);
     const st = useCanvasStore.getState();
 
-    if (!prev) { st.setHover(hitTest(pt)); return; } // solo hover, sin botón
+    if (!prev) { st.setHover(hitTest(pt)); return; }
 
     if (gesture.current?.type === 'pinch' && pointers.current.size >= 2) {
       const [[id1, a], [id2, b]] = [...pointers.current.entries()];
