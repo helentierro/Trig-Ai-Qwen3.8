@@ -26,6 +26,7 @@ function Row({ id, swatch, title, value, canHide }: {
 
   return (
     <div
+      data-testid={`row-${id}`}
       onMouseEnter={() => setHover(id)}
       onMouseLeave={() => setHover(null)}
       onClick={() => setSelected(selectedId === id ? null : id)}

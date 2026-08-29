@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { useCanvasStore } from '../../stores/canvasStore';
+import { useCanvasStore, initDefaultWorld } from '../../stores/canvasStore';
 import { niceGridStep, screenToWorld, worldToScreen } from '../../utils/coordinateTransform';
 import { InteractionLayer } from './InteractionLayer';
 import { ToolPalette } from './ToolPalette';
-import { initDefaultWorld } from '../../stores/canvasStore';
+import { ContextMenu } from './ContextMenu';
 
 const C = { bg: '#0d1117', grid: '#161b22', axis: '#30363d', text: '#8b949e', angle: '#fbbf24', ia: '#a78bfa', free: '#94a3b8' };
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
@@ -47,7 +47,6 @@ export function TriangleCanvas() {
     if (y !== 0) gridEls.push(<text key={`ht${i}`} x={Math.min(Math.max(o.x, 4), viewport.w - 30) + 6} y={sy - 4} fill={C.text} fontSize={10}>{y.toFixed(dec)}</text>);
   }
 
-  // posiciones en pantalla de TODOS los puntos
   const SP: Record<string, { x: number; y: number }> = {};
   Object.values(points).forEach((p) => (SP[p.id] = worldToScreen(p.pos, cam)));
 
@@ -70,13 +69,11 @@ export function TriangleCanvas() {
             <polygon points={`${SP.O.x},${SP.O.y} ${SP.B.x},${SP.B.y} ${SP.A.x},${SP.A.y}`} fill="#38bdf8" fillOpacity={0.12} />
           )}
 
-          {/* círculos */}
           {circles.filter((c) => c.visible && SP[c.c]).map((c) => (
             <circle key={c.id} cx={SP[c.c].x} cy={SP[c.c].y} r={Math.max(1, c.r * cam.zoom)}
                     fill="none" stroke={C.free} strokeWidth={lit(c.id) ? 3 : 1.5} />
           ))}
 
-          {/* segmentos (con progreso de dibujo IA) */}
           {segments.filter((g) => g.visible && SP[g.a] && SP[g.b] && (drawn[g.id] ?? 1) > 0).map((seg) => {
             const P = SP[seg.a];
             const Qf = SP[seg.b];
@@ -94,7 +91,6 @@ export function TriangleCanvas() {
             );
           })}
 
-          {/* vista previa de herramienta (línea punteada al cursor) */}
           {pending.length > 0 && cursorWorld && SP[pending[0]] && (
             <line x1={SP[pending[0]].x} y1={SP[pending[0]].y}
                   x2={worldToScreen(cursorWorld, cam).x} y2={worldToScreen(cursorWorld, cam).y}
@@ -119,7 +115,6 @@ export function TriangleCanvas() {
           {hasTriangle && done && vis('height') && <text x={SP.B.x + 24} y={(SP.B.y + SP.A.y) / 2} fill="#fb923c" fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
           {hasTriangle && done && vis('hyp') && <text x={(SP.O.x + SP.A.x) / 2 - 14} y={(SP.O.y + SP.A.y) / 2 - 10} fill="#e2e8f0" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
 
-          {/* puntos */}
           {Object.values(points).filter((p) => p.visible && SP[p.id] && (drawn[p.id] ?? 1) > 0).map((p) => {
             const sp = SP[p.id];
             const pop = drawn[p.id] ?? 1;
@@ -131,8 +126,9 @@ export function TriangleCanvas() {
                   <circle cx={sp.x} cy={sp.y} r={13} fill="none" stroke={selectedId === p.id ? '#fbbf24' : '#38bdf8'}
                           strokeOpacity={0.6} strokeWidth={2} className={pulseId === p.id ? 'glow-pulse' : undefined} />
                 )}
-                <circle cx={sp.x} cy={sp.y} r={(active ? 8 : 6) * pop} fill={C.bg} stroke="#e2e8f0" strokeWidth={2.5} />
-                {pop >= 1 && <text x={sp.x + off.x} y={sp.y + off.y} fill="#8b949e" fontSize={12} fontFamily="monospace">{p.id}</text>}
+                <circle data-testid={`pt-${p.id}`} cx={sp.x} cy={sp.y} r={(active ? 8 : 6) * pop} fill={C.bg} stroke={p.locked ? '#fbbf24' : '#e2e8f0'} strokeWidth={2.5} />
+                {pop >= 1 && p.showLabel && <text x={sp.x + off.x} y={sp.y + off.y} fill="#8b949e" fontSize={12} fontFamily="monospace">{p.id}</text>}
+                {p.locked && <text x={sp.x + 10} y={sp.y - 10} fontSize={11}>🔒</text>}
               </g>
             );
           })}
@@ -150,6 +146,7 @@ export function TriangleCanvas() {
       </InteractionLayer>
 
       <ToolPalette />
+      <ContextMenu />
 
       {subtitle && (
         <div key={subtitle} className="subtitle" style={{
@@ -168,8 +165,8 @@ export function TriangleCanvas() {
         </div>
       )}
       <div style={{ position: 'absolute', bottom: 10, left: 12, color: C.text, fontSize: 11, pointerEvents: 'none' }}>
-        {tool === 'move' ? 'arrastra los vértices · rueda/pinch = zoom · doble clic = encuadrar'
-          : tool === 'point' ? '📍 clic en el vacío crea un punto · Esc = volver a mover'
+        {tool === 'move' ? 'arrastra fluido · clic derecho = menú · Ctrl+Z = deshacer'
+          : tool === 'point' ? '📍 clic en el vacío crea un punto · Esc = mover'
           : tool === 'segment' ? '📏 clic en dos puntos para unirlos · Esc = cancelar'
           : '⭕ clic en el centro y clic en el radio · Esc = cancelar'}
       </div>

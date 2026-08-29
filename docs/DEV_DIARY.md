@@ -201,3 +201,23 @@ python test_keys.py --apply
 - El niño descubre con la mano: imanes, pulsos, celebraciones, retos en vivo.
 - La respuesta de la IA es una **escena**, no un párrafo.
 - "bronceado" queda como recordatorio eterno de no traducir matemática. 😄
+
+---
+
+## Fase F — Fluidez y Libertad (29-ago-2026)
+
+Decisiones acordadas con el dueño:
+- Arrastre CONTINUO (sin cuantización a grilla): fluidez tipo GeoGebra a cualquier zoom.
+  El imán de ÁNGULOS (⚡) se mantiene; 🧲 imán a la grilla es un botón opcional (default off).
+- FIX F1: arrastrar B mueve también A.x → el ángulo recto nunca se rompe.
+- Eliminar objetos con CASCADA (punto → sus segmentos/círculos; segmento → puntos quedan).
+- 🔒 Fijar objeto · 🏷 etiqueta on/off · 🤖 «Explícame esto» en menú contextual
+  (clic derecho en desktop; mantener presionado 550ms en touch).
+- Undo/redo: historial de snapshots (máx 50) en el store; Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y + botones ↩️↪️.
+  Snapshot en: crear punto/segmento/círculo, borrar, fijar, etiqueta, beginDrag, loadWorld, loadSaved.
+  (Los sliders NO entran al historial: son exploración continua.)
+- 💾 Guardar / 📂 Abrir: localStorage clave `trig-ai-world`. (Cloud/compartir/descargar/imprimir/examen → Fase G,
+  según captura del menú GeoGebra.)
+- Playwright: `playwright.config.ts` + `tests/smoke.spec.ts` (arranque limpio, regresión F1, undo, mundo puente).
+  Instalar: `npm i -D @playwright/test && npx playwright install chromium`; correr: `npx playwright test`.
+- data-testid: `pt-<id>` en vértices, `row-<id>` en filas del Álgebra.
