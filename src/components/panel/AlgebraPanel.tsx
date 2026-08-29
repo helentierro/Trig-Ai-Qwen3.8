@@ -2,13 +2,31 @@ import { useState, type ReactNode } from 'react';
 import { useCanvasStore } from '../../stores/canvasStore';
 
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
+const nums = (t: string) => (t.match(/-?\d+(\.\d+)?/g) || []).map(Number);
 
 const H = ({ children }: { children: ReactNode }) => (
   <div style={{ color: '#64748b', fontSize: 10, letterSpacing: 1.5, padding: '8px 10px 2px', textTransform: 'uppercase' }}>{children}</div>
 );
 
-function Row({ id, swatch, title, value, canHide }: {
-  id: string; swatch: ReactNode; title: string; value?: string; canHide?: boolean;
+function EditValue({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  if (!editing) return (
+    <span onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      title="Clic para editar" style={{ color: '#8b949e', cursor: 'text', borderBottom: '1px dashed #3b4654' }}> = {value}</span>
+  );
+  return (
+    <input
+      autoFocus defaultValue={value}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => { if (e.key === 'Enter') { onCommit((e.target as HTMLInputElement).value); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
+      onBlur={(e) => { onCommit(e.target.value); setEditing(false); }}
+      style={{ width: 90, background: '#111826', border: '1px solid #38bdf8', borderRadius: 4, color: '#e2e8f0', fontSize: 11.5, fontFamily: 'monospace', padding: '1px 4px' }}
+    />
+  );
+}
+
+function Row({ id, swatch, title, value, onCommit, canHide }: {
+  id: string; swatch: ReactNode; title: string; value?: string; onCommit?: (v: string) => void; canHide?: boolean;
 }) {
   const hoverId = useCanvasStore((s) => s.hoverId);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -39,7 +57,10 @@ function Row({ id, swatch, title, value, canHide }: {
     >
       {swatch}
       <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {title}{value !== undefined && <span style={{ color: '#8b949e' }}> = {value}</span>}
+        {title}
+        {value !== undefined && (onCommit
+          ? <EditValue value={value} onCommit={onCommit} />
+          : <span style={{ color: '#8b949e' }}> = {value}</span>)}
       </span>
       {canHide && (
         <button
@@ -58,6 +79,7 @@ export function AlgebraPanel() {
   const circles = useCanvasStore((s) => s.circles);
   const m = useCanvasStore((s) => s.measures);
   const hasTriangle = useCanvasStore((s) => s.hasTriangle);
+  const chain = useCanvasStore((s) => s.chain);
   const pulse = useCanvasStore((s) => s.pulse);
   const [open, setOpen] = useState(true);
 
@@ -68,12 +90,7 @@ export function AlgebraPanel() {
     >ÁLGEBRA</button>
   );
 
-  const len: Record<string, number> = { base: m.base, height: m.height, hyp: m.hyp };
-  const demoIA = () => {
-    pulse('hyp', 1400);
-    setTimeout(() => pulse('angleO', 1400), 1500);
-    setTimeout(() => pulse('area', 1400), 3000);
-  };
+  const st = () => useCanvasStore.getState();
 
   return (
     <aside style={{ width: 272, borderRight: '1px solid #1f2630', background: '#0a0e14', padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -81,20 +98,29 @@ export function AlgebraPanel() {
         <strong style={{ fontSize: 13, letterSpacing: 1 }}>ÁLGEBRA</strong>
         <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer' }}>⟨</button>
       </div>
+      <div style={{ padding: '0 10px 6px', color: '#64748b', fontSize: 10.5 }}>Los valores con guion son editables ✏️</div>
 
       <H>Puntos</H>
       {Object.values(points).map((p) => (
         <Row key={p.id} id={p.id} canHide
           swatch={<span style={{ width: 9, height: 9, borderRadius: '50%', background: '#0a0e14', border: '2px solid #e2e8f0', flexShrink: 0 }} />}
-          title={`${p.id} = (${fmt(p.pos.x)}, ${fmt(p.pos.y)})`} />
+          title={p.id}
+          value={`(${fmt(p.pos.x)}, ${fmt(p.pos.y)})`}
+          onCommit={(v) => { const n = nums(v); if (n.length >= 2) st().setPointPos(p.id, n[0], n[1]); }} />
       ))}
 
       <H>Segmentos</H>
-      {segments.map((g) => (
-        <Row key={g.id} id={g.id} canHide
-          swatch={<span style={{ width: 14, height: 3, background: g.color, borderRadius: 2, flexShrink: 0 }} />}
-          title={`${g.id} = Seg(${g.a}, ${g.b})`} value={len[g.id] !== undefined ? fmt(len[g.id]) : undefined} />
-      ))}
+      {segments.map((g) => {
+        const pa = points[g.a]?.pos, pb = points[g.b]?.pos;
+        const len = pa && pb ? Math.hypot(pb.x - pa.x, pb.y - pa.y) : 0;
+        return (
+          <Row key={g.id} id={g.id} canHide
+            swatch={<span style={{ width: 14, height: 3, background: g.color, borderRadius: 2, flexShrink: 0 }} />}
+            title={`${g.id} = Seg(${g.a}, ${g.b})`}
+            value={fmt(len)}
+            onCommit={(v) => { const n = nums(v); if (n.length) st().setSegmentLen(g.id, n[0]); }} />
+        );
+      })}
 
       {circles.length > 0 && (
         <>
@@ -110,20 +136,22 @@ export function AlgebraPanel() {
       {hasTriangle ? (
         <>
           <H>Medidas</H>
-          <Row id="angleO" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`} />
-          <Row id="angleB" swatch={<span style={{ color: '#fbbf24' }}>∟</span>} title="ángulo en B" value="90°" />
-          <Row id="angleA" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="α (en A)" value={`${fmt(90 - m.angleDeg)}°`} />
+          <Row id="angleO" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
+            onCommit={chain ? (v) => { const n = nums(v); if (n.length) st().setAngleDeg(n[0]); } : undefined} />
+          <Row id="angleB" swatch={<span style={{ color: '#fbbf24' }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
+          <Row id="angleA" swatch={<span style={{ color: '#fbbf24' }}>∠</span>} title="α (en A)" value={`${fmt(m.angleA)}°`} />
           <Row id="area" swatch={<span style={{ color: '#38bdf8' }}>▦</span>} title="área" value={fmt(m.area)} />
-          <button onClick={demoIA} style={{ margin: '10px 10px 4px', padding: 8, borderRadius: 8, border: '1px solid #1f2630', background: '#111826', color: '#38bdf8', cursor: 'pointer', fontSize: 12 }}>
+          <button onClick={() => { pulse('hyp', 1400); setTimeout(() => pulse('angleO', 1400), 1500); setTimeout(() => pulse('area', 1400), 3000); }}
+            style={{ margin: '10px 10px 4px', padding: 8, borderRadius: 8, border: '1px solid #1f2630', background: '#111826', color: '#38bdf8', cursor: 'pointer', fontSize: 12 }}>
             ✨ Simular IA: «mira la figura»
           </button>
           <div style={{ padding: '8px 10px', color: '#64748b', fontSize: 11, fontFamily: 'monospace', borderTop: '1px solid #141a23', marginTop: 6 }}>
-            {fmt(m.angleDeg)}° + 90° + {fmt(90 - m.angleDeg)}° = 180° ✔
+            {fmt(m.angleDeg)}° + {fmt(m.angleB)}° + {fmt(m.angleA)}° = 180° ✔
           </div>
         </>
       ) : (
         <div style={{ padding: '10px', color: '#64748b', fontSize: 11.5, lineHeight: 1.5 }}>
-          Este mundo no tiene triángulo rectángulo.<br />Usa 🧹 para volver, o construye con 🛠.
+          Este mundo no tiene triángulo O-B-A.<br />Usa 🧹 para volver, o construye con 🛠.
         </div>
       )}
     </aside>

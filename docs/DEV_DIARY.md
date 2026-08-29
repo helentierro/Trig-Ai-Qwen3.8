@@ -221,3 +221,23 @@ Decisiones acordadas con el dueño:
 - Playwright: `playwright.config.ts` + `tests/smoke.spec.ts` (arranque limpio, regresión F1, undo, mundo puente).
   Instalar: `npm i -D @playwright/test && npx playwright install chromium`; correr: `npx playwright test`.
 - data-testid: `pt-<id>` en vértices, `row-<id>` en filas del Álgebra.
+- ⚠️ Incidente 29-ago: `git add .` casi commitea `api/.venv` (miles de archivos).
+  Ctrl+C a tiempo; `git reset` + `.gitignore` blindado (`.venv/`, `__pycache__/`,
+  `test-results/`, `playwright-report/`). Lección: **`git status --short` antes de cada commit**.
+
+---
+
+  ## Fase G1 — Libertad y Poder (29-ago-2026)
+
+- Arranque LIBRE (decisión del rey): sin cadena por defecto; ⛓️ toggle en ToolPalette y footer.
+- Cadena ON: A solo vertical (B quieto), B horizontal (A sigue en x), O traslada el triángulo.
+  El CANDADO gana sobre la cadena. Imán ⚡ solo con cadena.
+- Libertad total: sin clamps de cuadrante; los 4 cuadrantes; zoom 0.02–50000.
+- Medidas REALES de cualquier triángulo (ley de cosenos): angleDeg(O), angleB, angleA, área;
+  `rightAngle` gobierna el cuadrito de 90° y la fórmula tan del footer.
+- Álgebra editable (núcleo G1): clic en valor subrayado → input (puntos "x, y", longitudes, θ con cadena).
+- Guardar sin spam: toast + historial de 5 slots en localStorage `trig-ai-saves`; 📂 lista con fechas.
+- Paneles colapsables: Álgebra ✔ (ya), Chat ✔, ToolPalette ✔ (🛠).
+- Tests: escudo "libertad" (A no arrastra a B) + escudo "cadena" (B arrastra a A con ⛓️).
+- Pendiente G2: tema claro(default)/oscuro/sistema, menú der. = estilos de vista (grillas fina/grande/
+  circular/rombo/fondo blanco), panel de 4 pestañas (Álgebra·Herramientas·Tabla·Hoja de cálculo).

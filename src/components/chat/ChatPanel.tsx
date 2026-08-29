@@ -5,6 +5,7 @@ import { askTutor } from '../../services/aiService';
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
   const [text, setText] = useState('');
+  const [open, setOpen] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
@@ -16,11 +17,19 @@ export function ChatPanel() {
     void askTutor(t);
   };
 
+  if (!open) return (
+    <button onClick={() => setOpen(true)}
+      style={{ width: 30, borderLeft: '1px solid #1f2630', background: '#0a0e14', color: '#8b949e', cursor: 'pointer', writingMode: 'vertical-rl', fontSize: 11, letterSpacing: 2 }}>
+      TUTOR IA
+    </button>
+  );
+
   return (
     <aside style={{ width: 300, borderLeft: '1px solid #1f2630', background: '#0a0e14', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '10px 14px', borderBottom: '1px solid #1f2630', display: 'flex', alignItems: 'center' }}>
         <strong style={{ fontSize: 13 }}>Tutor IA</strong>
         <span style={{ marginLeft: 'auto', color: '#4ade80', fontSize: 11 }}>● en línea</span>
+        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', marginLeft: 8 }}>⟩</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>

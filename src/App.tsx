@@ -20,19 +20,22 @@ export default function App() {
 
   const m = useCanvasStore((s) => s.measures);
   const hasTriangle = useCanvasStore((s) => s.hasTriangle);
+  const chain = useCanvasStore((s) => s.chain);
+  const setChain = useCanvasStore((s) => s.setChain);
   const setAngleDeg = useCanvasStore((s) => s.setAngleDeg);
   const setBase = useCanvasStore((s) => s.setBase);
   const voiceOn = useCanvasStore((s) => s.voiceOn);
   const setVoiceOn = useCanvasStore((s) => s.setVoiceOn);
   const playing = useCanvasStore((s) => s.playing);
   const celebration = useCanvasStore((s) => s.celebration);
+  const toast = useCanvasStore((s) => s.toast);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d1117', color: '#e2e8f0' }}>
       <header style={{ padding: '10px 16px', borderBottom: '1px solid #1f2630', display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ background: '#38bdf8', color: '#0d1117', fontWeight: 800, borderRadius: 8, padding: '2px 10px' }}>Δ</span>
         <strong>Trig AI Tutor</strong>
-        <span style={{ color: '#8b949e', fontSize: 12 }}>mundo v2 — toca, construye, descubre</span>
+        <span style={{ color: '#8b949e', fontSize: 12 }}>mundo libre — toca, construye, descubre</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button style={{ ...btn, color: '#fbbf24' }} onClick={() => setDisc('lib')}>📚 Descubrir</button>
           <button style={{ ...btn, color: '#4ade80' }} onClick={() => setDisc('retos')}>🎯 Retos</button>
@@ -54,18 +57,22 @@ export default function App() {
       <footer style={{ borderTop: '1px solid #1f2630', padding: '10px 16px', display: 'flex', gap: 24, alignItems: 'center', fontFamily: 'monospace', fontSize: 13 }}>
         {hasTriangle ? (
           <>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button style={{ ...btn, borderColor: chain ? '#38bdf8' : '#1f2630', color: chain ? '#38bdf8' : '#8b949e' }}
+              onClick={() => setChain(!chain)} title="Modo triángulo rectángulo">⛓️ {chain ? 'ON' : 'OFF'}</button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: chain ? 1 : 0.4 }}>
               θ
-              <input type="range" min={1} max={89} value={Math.round(m.angleDeg)} disabled={playing} onChange={(e) => setAngleDeg(+e.target.value)} />
+              <input type="range" min={1} max={89} value={Math.round(m.angleDeg)} disabled={playing || !chain} onChange={(e) => setAngleDeg(+e.target.value)} />
               {m.angleDeg.toFixed(0)}°
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: chain ? 1 : 0.4 }}>
               base
-              <input type="range" min={5} max={120} value={Math.round(m.base)} disabled={playing} onChange={(e) => setBase(+e.target.value)} />
+              <input type="range" min={5} max={120} value={Math.round(m.base)} disabled={playing || !chain} onChange={(e) => setBase(+e.target.value)} />
               {m.base.toFixed(0)}
             </label>
             <span style={{ marginLeft: 'auto', color: '#8b949e' }}>
-              tan({m.angleDeg.toFixed(0)}°) = {m.height.toFixed(2)} / {m.base.toFixed(2)} → h ≈ {m.height.toFixed(2)}
+              {(chain || m.rightAngle)
+                ? `tan(${m.angleDeg.toFixed(0)}°) = ${m.height.toFixed(2)} / ${m.base.toFixed(2)}`
+                : `${m.angleDeg.toFixed(0)}° + ${m.angleB.toFixed(0)}° + ${m.angleA.toFixed(0)}° = 180° ✔`}
             </span>
           </>
         ) : (
@@ -74,6 +81,12 @@ export default function App() {
       </footer>
 
       {disc && <DiscoverPanel tab={disc} onClose={() => setDisc(null)} />}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 60, right: 20, background: '#111826', border: '1px solid #2b3648', color: '#e2e8f0', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, zIndex: 70, pointerEvents: 'none' }}>
+          {toast}
+        </div>
+      )}
 
       {celebration && (
         <div className="celebrate" style={{

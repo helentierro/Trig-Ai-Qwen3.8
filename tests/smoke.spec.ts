@@ -9,10 +9,23 @@ test('arranca sin errores de consola y con el triángulo', async ({ page }) => {
   expect(errores).toEqual([]);
 });
 
-test('F1: arrastrar B conserva el ángulo recto (A sigue a B)', async ({ page }) => {
+test('libertad: arrastrar A NO mueve B (bug 1 de la Fase G, muerto)', async ({ page }) => {
   await page.goto('/');
+  const rowB0 = (await page.locator('[data-testid="row-B"]').textContent())!;
+  const a = page.locator('[data-testid="pt-A"]');
+  const ab = await a.boundingBox();
+  await page.mouse.move(ab!.x + ab!.width / 2, ab!.y + ab!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(ab!.x + 60, ab!.y - 100, { steps: 10 });
+  await page.mouse.up();
+  const rowB1 = (await page.locator('[data-testid="row-B"]').textContent())!;
+  expect(rowB1).toEqual(rowB0);
+});
+
+test('cadena ⛓️: con cadena ON, arrastrar B arrastra a A', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTitle('Cadena: triángulo rectángulo').click();
   const b = page.locator('[data-testid="pt-B"]');
-  await expect(b).toBeVisible();
   const bb = await b.boundingBox();
   await page.mouse.move(bb!.x + bb!.width / 2, bb!.y + bb!.height / 2);
   await page.mouse.down();

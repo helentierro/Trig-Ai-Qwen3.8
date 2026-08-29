@@ -48,11 +48,14 @@ export function TriangleCanvas() {
   }
 
   const SP: Record<string, { x: number; y: number }> = {};
-  Object.values(points).forEach((p) => (SP[p.id] = worldToScreen(p.pos, cam)));
+  Object.values(points).forEach((p) => { if (p.id) SP[p.id] = worldToScreen(p.pos, cam); });
+
+  // BLINDAJE: solo usamos O/B/A en pantalla si existen en el mapa
+  const tri = hasTriangle && !!SP.O && !!SP.B && !!SP.A;
 
   const norm = (v: { x: number; y: number }) => { const l = Math.hypot(v.x, v.y) || 1; return { x: v.x / l, y: v.y / l }; };
-  const u = hasTriangle ? norm({ x: SP.O.x - SP.B.x, y: SP.O.y - SP.B.y }) : { x: 0, y: 0 };
-  const v = hasTriangle ? norm({ x: SP.A.x - SP.B.x, y: SP.A.y - SP.B.y }) : { x: 0, y: 0 };
+  const u = tri ? norm({ x: SP.O.x - SP.B.x, y: SP.O.y - SP.B.y }) : { x: 0, y: 0 };
+  const v = tri ? norm({ x: SP.A.x - SP.B.x, y: SP.A.y - SP.B.y }) : { x: 0, y: 0 };
   const sz = 12, r = 30;
   const th = (measures.angleDeg * Math.PI) / 180;
   const lit = (id: string) => hoverId === id || selectedId === id || pulseId === id;
@@ -65,7 +68,7 @@ export function TriangleCanvas() {
         <svg width={viewport.w} height={viewport.h}>
           {gridEls}
 
-          {hasTriangle && done && lit('area') && (
+          {tri && done && lit('area') && (
             <polygon points={`${SP.O.x},${SP.O.y} ${SP.B.x},${SP.B.y} ${SP.A.x},${SP.A.y}`} fill="#38bdf8" fillOpacity={0.12} />
           )}
 
@@ -97,25 +100,25 @@ export function TriangleCanvas() {
                   stroke={C.ia} strokeDasharray="5 5" strokeWidth={1.5} />
           )}
 
-          {hasTriangle && done && (
+          {tri && done && measures.rightAngle && (
             <path d={`M ${SP.B.x + u.x * sz} ${SP.B.y + u.y * sz} L ${SP.B.x + (u.x + v.x) * sz} ${SP.B.y + (u.y + v.y) * sz} L ${SP.B.x + v.x * sz} ${SP.B.y + v.y * sz}`}
                   fill="none" stroke={lit('angleB') ? C.angle : C.text} strokeWidth={1.5} />
           )}
-          {hasTriangle && done && (
+          {tri && done && (
             <path d={`M ${SP.O.x + r} ${SP.O.y} A ${r} ${r} 0 0 0 ${SP.O.x + r * Math.cos(th)} ${SP.O.y - r * Math.sin(th)}`}
                   fill="none" stroke={C.angle} strokeWidth={lit('angleO') ? 3.5 : 2} />
           )}
-          {hasTriangle && done && (
+          {tri && done && (
             <text x={SP.O.x + (r + 16) * Math.cos(th / 2)} y={SP.O.y - (r + 16) * Math.sin(th / 2)} fill={C.angle} fontSize={13} fontFamily="monospace">
               {fmt(measures.angleDeg)}°
             </text>
           )}
 
-          {hasTriangle && done && vis('base') && <text x={(SP.O.x + SP.B.x) / 2} y={SP.O.y + 20} fill="#38bdf8" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.base)}</text>}
-          {hasTriangle && done && vis('height') && <text x={SP.B.x + 24} y={(SP.B.y + SP.A.y) / 2} fill="#fb923c" fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
-          {hasTriangle && done && vis('hyp') && <text x={(SP.O.x + SP.A.x) / 2 - 14} y={(SP.O.y + SP.A.y) / 2 - 10} fill="#e2e8f0" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
+          {tri && done && vis('base') && <text x={(SP.O.x + SP.B.x) / 2} y={SP.O.y + 20} fill="#38bdf8" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.base)}</text>}
+          {tri && done && vis('height') && <text x={SP.B.x + 24} y={(SP.B.y + SP.A.y) / 2} fill="#fb923c" fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
+          {tri && done && vis('hyp') && <text x={(SP.O.x + SP.A.x) / 2 - 14} y={(SP.O.y + SP.A.y) / 2 - 10} fill="#e2e8f0" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
 
-          {Object.values(points).filter((p) => p.visible && SP[p.id] && (drawn[p.id] ?? 1) > 0).map((p) => {
+          {Object.values(points).filter((p) => p.visible && p.id && SP[p.id] && (drawn[p.id] ?? 1) > 0).map((p) => {
             const sp = SP[p.id];
             const pop = drawn[p.id] ?? 1;
             const active = hoverId === p.id || dragId === p.id;
@@ -165,7 +168,7 @@ export function TriangleCanvas() {
         </div>
       )}
       <div style={{ position: 'absolute', bottom: 10, left: 12, color: C.text, fontSize: 11, pointerEvents: 'none' }}>
-        {tool === 'move' ? 'arrastra fluido · clic derecho = menú · Ctrl+Z = deshacer'
+        {tool === 'move' ? 'todo punto es libre · ⛓️ activa el modo rectángulo · clic derecho = menú'
           : tool === 'point' ? '📍 clic en el vacío crea un punto · Esc = mover'
           : tool === 'segment' ? '📏 clic en dos puntos para unirlos · Esc = cancelar'
           : '⭕ clic en el centro y clic en el radio · Esc = cancelar'}

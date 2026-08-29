@@ -85,7 +85,6 @@ export async function playScene(script: SceneScript) {
   st().setPlaying(false);
 }
 
-// BLINDADO: si no hay triángulo (estás en el puente, el GPS…), vuelve al triángulo solo
 export function buildTriangleScript(): SceneScript {
   if (!useCanvasStore.getState().hasTriangle) useCanvasStore.getState().loadWorld(null);
   const { points, measures } = useCanvasStore.getState();
@@ -113,6 +112,7 @@ export function runConstruction() {
   const st = useCanvasStore.getState();
   if (st.playing) return;
   if (!st.hasTriangle) st.loadWorld(null);
+  if (!useCanvasStore.getState().chain) useCanvasStore.getState().setChain(true);
   useCanvasStore.getState().resetConstruction();
   void playScene(buildTriangleScript());
 }
