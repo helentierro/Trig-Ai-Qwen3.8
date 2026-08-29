@@ -1,34 +1,15 @@
 // src/components/canvas/TriangleCanvas.tsx
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useCanvasStore, initDefaultWorld, type GridStyle } from '../../stores/canvasStore';
-import { useThemeStore } from '../../stores/themeStore';
+import { useThemeStore, usePal } from '../../stores/themeStore';
 import { type Camera, niceGridStep, screenToWorld, worldToScreen, fmtCoord } from '../../utils/coordinateTransform';
 import { InteractionLayer } from './InteractionLayer';
 import { ToolPalette } from './ToolPalette';
 import { ContextMenu } from './ContextMenu';
 
-interface Pal {
-  bg: string; grid: string; axis: string; text: string; point: string;
-  angle: string; ia: string; free: string; sel: string; hov: string;
-  bubbleBg: string; bubbleBorder: string; bubbleText: string;
-}
-const PALS: Record<'dark' | 'light', Pal> = {
-  dark: {
-    bg: '#0d1117', grid: '#161b22', axis: '#30363d', text: '#8b949e', point: '#e2e8f0',
-    angle: '#fbbf24', ia: '#a78bfa', free: '#94a3b8', sel: '#fbbf24', hov: '#38bdf8',
-    bubbleBg: 'rgba(17,24,38,0.92)', bubbleBorder: '#2b3648', bubbleText: '#e2e8f0',
-  },
-  light: {
-    bg: '#ffffff', grid: '#eef2f7', axis: '#c9d2dc', text: '#61708b', point: '#1f2937',
-    angle: '#b45309', ia: '#7c3aed', free: '#64748b', sel: '#b45309', hov: '#0284c7',
-    bubbleBg: 'rgba(255,255,255,0.95)', bubbleBorder: '#d7dee8', bubbleText: '#1f2937',
-  },
-};
-
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
 
-/* Números de eje que NUNCA desaparecen: se pegan al borde visible (como GeoGebra). */
-function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pal: Pal): ReactNode[] {
+function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pal: ReturnType<typeof usePal>): ReactNode[] {
   const els: ReactNode[] = [];
   const tl = screenToWorld({ x: 0, y: 0 }, cam);
   const br = screenToWorld({ x: vp.w, y: vp.h }, cam);
@@ -51,7 +32,7 @@ function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pa
   return els;
 }
 
-function axesLines(cam: Camera, vp: { w: number; h: number }, pal: Pal): ReactNode[] {
+function axesLines(cam: Camera, vp: { w: number; h: number }, pal: ReturnType<typeof usePal>): ReactNode[] {
   const o = worldToScreen({ x: 0, y: 0 }, cam);
   return [
     <line key="axV" x1={o.x} y1={0} x2={o.x} y2={vp.h} stroke={pal.axis} />,
@@ -59,8 +40,7 @@ function axesLines(cam: Camera, vp: { w: number; h: number }, pal: Pal): ReactNo
   ];
 }
 
-/* 5 estilos de cuadrícula, todos adaptativos al zoom (feature 4–4.4). */
-function gridElements(style: GridStyle, cam: Camera, vp: { w: number; h: number }, pal: Pal): ReactNode[] {
+function gridElements(style: GridStyle, cam: Camera, vp: { w: number; h: number }, pal: ReturnType<typeof usePal>): ReactNode[] {
   const els: ReactNode[] = [];
   const tl = screenToWorld({ x: 0, y: 0 }, cam);
   const br = screenToWorld({ x: vp.w, y: vp.h }, cam);
@@ -92,7 +72,6 @@ function gridElements(style: GridStyle, cam: Camera, vp: { w: number; h: number 
     return [...els, ...axesLines(cam, vp, pal), ...axisNumbers(cam, vp, step, pal)];
   }
 
-  // fine | large
   const step = niceGridStep(cam.zoom, style === 'large' ? 170 : 64);
   for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++) {
     const x = i * step;
@@ -111,7 +90,7 @@ export function TriangleCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const s = useCanvasStore();
   const resolved = useThemeStore((t) => t.resolved);
-  const C = PALS[resolved];
+  const C = usePal();
   const { camera: cam, viewport, points, segments, circles, measures, hoverId, dragId, snapBadge,
     selectedId, pulseId, drawn, aiCursor, subtitle, hasTriangle, pending, cursorWorld, tool, gridStyle } = s;
 
@@ -129,7 +108,6 @@ export function TriangleCanvas() {
     return () => ro.disconnect();
   }, []);
 
-  // colores de segmentos legibles según tema (hyp blanca → tinta en claro)
   const ink = (color: string) => (resolved === 'light' && color === '#e2e8f0' ? '#334155' : color);
 
   const SP: Record<string, { x: number; y: number }> = {};
@@ -139,10 +117,31 @@ export function TriangleCanvas() {
   const u = tri ? norm({ x: SP.O.x - SP.B.x, y: SP.O.y - SP.B.y }) : { x: 0, y: 0 };
   const v = tri ? norm({ x: SP.A.x - SP.B.x, y: SP.A.y - SP.B.y }) : { x: 0, y: 0 };
   const sz = 12, r = 30;
-  const th = (measures.angleDeg * Math.PI) / 180;
   const lit = (id: string) => hoverId === id || selectedId === id || pulseId === id;
   const vis = (id: string) => segments.find((g) => g.id === id)?.visible ?? true;
   const done = (drawn['hyp'] ?? 1) >= 1;
+
+  /* FIX "angulito": el arco nace entre O→B y O→A, en CUALQUIER orientación. */
+  const angleArc = () => {
+    if (!tri || !done) return null;
+    const a1 = Math.atan2(-(SP.B.y - SP.O.y), SP.B.x - SP.O.x);
+    const a2 = Math.atan2(-(SP.A.y - SP.O.y), SP.A.x - SP.O.x);
+    let d = a2 - a1;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    const sweep = d > 0 ? 0 : 1;
+    const p1 = { x: SP.O.x + r * Math.cos(a1), y: SP.O.y - r * Math.sin(a1) };
+    const p2 = { x: SP.O.x + r * Math.cos(a2), y: SP.O.y - r * Math.sin(a2) };
+    const am = a1 + d / 2;
+    return (
+      <>
+        <path d={`M ${p1.x} ${p1.y} A ${r} ${r} 0 0 ${sweep} ${p2.x} ${p2.y}`} fill="none" stroke={C.angle} strokeWidth={lit('angleO') ? 3.5 : 2} />
+        <text x={SP.O.x + (r + 16) * Math.cos(am)} y={SP.O.y - (r + 16) * Math.sin(am)} fill={C.angle} fontSize={13} fontFamily="monospace">
+          {fmt(measures.angleDeg)}°
+        </text>
+      </>
+    );
+  };
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', background: C.bg, userSelect: 'none' }}>
@@ -182,15 +181,7 @@ export function TriangleCanvas() {
             <path d={`M ${SP.B.x + u.x * sz} ${SP.B.y + u.y * sz} L ${SP.B.x + (u.x + v.x) * sz} ${SP.B.y + (u.y + v.y) * sz} L ${SP.B.x + v.x * sz} ${SP.B.y + v.y * sz}`}
               fill="none" stroke={lit('angleB') ? C.angle : C.text} strokeWidth={1.5} />
           )}
-          {tri && done && (
-            <path d={`M ${SP.O.x + r} ${SP.O.y} A ${r} ${r} 0 0 0 ${SP.O.x + r * Math.cos(th)} ${SP.O.y - r * Math.sin(th)}`}
-              fill="none" stroke={C.angle} strokeWidth={lit('angleO') ? 3.5 : 2} />
-          )}
-          {tri && done && (
-            <text x={SP.O.x + (r + 16) * Math.cos(th / 2)} y={SP.O.y - (r + 16) * Math.sin(th / 2)} fill={C.angle} fontSize={13} fontFamily="monospace">
-              {fmt(measures.angleDeg)}°
-            </text>
-          )}
+          {angleArc()}
           {tri && done && vis('base') && <text x={(SP.O.x + SP.B.x) / 2} y={SP.O.y + 20} fill="#38bdf8" fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.base)}</text>}
           {tri && done && vis('height') && <text x={SP.B.x + 24} y={(SP.B.y + SP.A.y) / 2} fill={resolved === 'light' ? '#c2410c' : '#fb923c'} fontSize={12} fontFamily="monospace">{fmt(measures.height)}</text>}
           {tri && done && vis('hyp') && <text x={(SP.O.x + SP.A.x) / 2 - 14} y={(SP.O.y + SP.A.y) / 2 - 10} fill={ink('#e2e8f0')} fontSize={12} fontFamily="monospace" textAnchor="middle">{fmt(measures.hyp)}</text>}
