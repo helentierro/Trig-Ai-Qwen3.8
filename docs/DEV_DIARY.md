@@ -241,3 +241,5 @@ Decisiones acordadas con el dueño:
 - Tests: escudo "libertad" (A no arrastra a B) + escudo "cadena" (B arrastra a A con ⛓️).
 - Pendiente G2: tema claro(default)/oscuro/sistema, menú der. = estilos de vista (grillas fina/grande/
   circular/rombo/fondo blanco), panel de 4 pestañas (Álgebra·Herramientas·Tabla·Hoja de cálculo).
+- ⚠️ fix 30-ago: dragTo cadena esparcía la posición en vez del nodo → ids perdidos → crash de render; blindaje 
+  tri en TriangleCanvas.

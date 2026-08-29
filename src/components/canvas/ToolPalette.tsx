@@ -1,5 +1,7 @@
+// src/components/canvas/ToolPalette.tsx
 import { useState } from 'react';
 import { useCanvasStore, type Tool } from '../../stores/canvasStore';
+import { useThemeStore } from '../../stores/themeStore';
 
 const TOOLS: { id: Tool; icon: string; label: string }[] = [
   { id: 'move', icon: '🖐', label: 'Mover / arrastrar' },
@@ -22,13 +24,21 @@ export function ToolPalette() {
   const loadSlot = useCanvasStore((s) => s.loadSlot);
   const saves = useCanvasStore((s) => s.saves);
   const toastMsg = useCanvasStore((s) => s.toastMsg);
+  const mode = useThemeStore((t) => t.mode);
+  const cycle = useThemeStore((t) => t.cycle);
   const [open, setOpen] = useState(true);
   const [savesOpen, setSavesOpen] = useState(false);
 
+  const dark = useThemeStore((t) => t.resolved) === 'dark';
+  const bgBtn = dark ? '#111826' : '#ffffff';
+  const border = dark ? '#1f2630' : '#d7dee8';
+  const activeBorder = '#38bdf8';
+  const activeBg = dark ? 'rgba(56,189,248,.18)' : 'rgba(2,132,199,.12)';
+
   const style = (active: boolean): React.CSSProperties => ({
     width: 40, height: 40, borderRadius: 10, fontSize: 17, cursor: 'pointer',
-    border: active ? '1px solid #38bdf8' : '1px solid #1f2630',
-    background: active ? 'rgba(56,189,248,.18)' : '#111826',
+    border: active ? `1px solid ${activeBorder}` : `1px solid ${border}`,
+    background: active ? activeBg : bgBtn,
   });
 
   if (!open) return (
@@ -51,18 +61,21 @@ export function ToolPalette() {
       <div style={{ height: 4 }} />
       <button title="Guardar mundo" onClick={saveWorld} style={style(false)}>💾</button>
       <div style={{ position: 'relative' }}>
-        <button title="Abrir mundo guardado" onClick={() => { if (!saves.length) toastMsg('Aún no hay mundos guardados 🌱'); setSavesOpen(!savesOpen); }} style={style(false)}>📂</button>
+        <button title="Abrir mundo guardado" onClick={() => { if (!saves.length) toastMsg('Aún no hay mundos guardados'); setSavesOpen(!savesOpen); }} style={style(false)}>📂</button>
         {savesOpen && saves.length > 0 && (
-          <div style={{ position: 'absolute', left: 46, top: 0, width: 190, background: '#111826', border: '1px solid #2b3648', borderRadius: 10, padding: 5, zIndex: 20 }}>
+          <div style={{ position: 'absolute', left: 46, top: 0, width: 190, background: bgBtn, border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden', zIndex: 6 }}>
             {saves.map((sv, i) => (
               <button key={sv.at} onClick={() => { loadSlot(i); setSavesOpen(false); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', background: 'none', border: 'none', color: '#e2e8f0', fontSize: 11.5, cursor: 'pointer', borderRadius: 6, fontFamily: 'monospace' }}>
-                🌍 {new Date(sv.at).toLocaleString()}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', background: 'none', border: 'none', color: dark ? '#e2e8f0' : '#1f2937', fontSize: 11.5, cursor: 'pointer' }}>
+                📂 {new Date(sv.at).toLocaleString()}
               </button>
             ))}
           </div>
         )}
       </div>
+      <button title={`Tema: ${mode} (clic para cambiar)`} onClick={cycle} style={style(false)}>
+        {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
+      </button>
     </div>
   );
 }
