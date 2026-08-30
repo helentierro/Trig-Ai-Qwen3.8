@@ -1,4 +1,5 @@
 # DEV_DIARY — Trig AI Tutor 🤖
+
 > La memoria viva del proyecto. Si eres una IA o un humano nuevo: **lee esto primero**,
 > luego `docs/architecture.md`, y respeta las Reglas de Oro antes de tocar nada.
 > Última actualización: sábado 29 de agosto de 2026.
@@ -11,8 +12,8 @@
    proyecto prefiere reemplazar archivos enteros antes que aplicar parches a mano.
    Nunca entregues diffs sueltos salvo que se pida.
 2. **Idioma y tono:** español, cálido ("mi rey"), pero técnicamente serio.
-3. **Visión primero:** todo diseño se juzga con la pregunta: *¿un niño de 10 años puede
-   tocarlo, jugarlo y descubrir con esto?* La IA no responde con párrafos: **responde con
+3. **Visión primero:** todo diseño se juzga con la pregunta: _¿un niño de 10 años puede
+   tocarlo, jugarlo y descubrir con esto?_ La IA no responde con párrafos: **responde con
    escenas** (dibuja, señala, narra, celebra).
 4. **El LLM solo genera ESTRUCTURA, nunca números confiables:** el backend sanitiza
    todo (clamps, whitelists de ids). Regla del doc de arquitectura §9.
@@ -78,26 +79,30 @@ src/
 ## 3. Crónica de fases (lo construido)
 
 ### Fase A — El Mundo (feel GeoGebra)
+
 Canvas infinito: zoom al cursor/pinch, pan, grilla adaptativa 1/2/5×10ⁿ, ejes con números.
 Scene graph en `canvasStore`: puntos `O` (fijo), `B` (horizontal), `A` (libre) con
 restricciones; segmentos `base/height/hyp`. **Imanes magnéticos** en 15/30/45/60/75°
 (con badge ⚡ y evento `snap-angle`). Sliders y fórmula bidireccionales.
-*Hito emocional:* el niño descubre con la mano que a 60° la hipotenusa = 2×base.
+_Hito emocional:_ el niño descubre con la mano que a 60° la hipotenusa = 2×base.
 
 ### Fase B — Panel Álgebra + el dedo de la IA
+
 `AlgebraPanel`: lista viva de puntos/segmentos/medidas (estilo GeoGebra), hover
 bidireccional panel↔canvas, selección fijada, ojos 👁 (visibilidad), hover en «área»
-rellena el triángulo. Nace **`pulse(id)`**: el mecanismo para que la IA *señale* objetos.
+rellena el triángulo. Nace **`pulse(id)`**: el mecanismo para que la IA _señale_ objetos.
 
 ### Fase C — Director de escena + tutor que observa
+
 `types/ai.ts` (SceneStep), `scenePlayer.ts`: cola de pasos con easing, **cursor violeta
 "IA" que actúa como lápiz**, subtítulos animados, voz opcional. `buildTriangleScript()`
-construye y narra *el triángulo actual*. `ChatPanel` + `localTutor` (intenciones locales:
+construye y narra _el triángulo actual_. `ChatPanel` + `localTutor` (intenciones locales:
 ángulos, hipotenusa, catetos, seno/coseno/tangente, área, 180°).
 `useTeachableMoments`: al imantar un ángulo notable, la IA comenta el descubrimiento en el
 chat (una vez por ángulo por sesión).
 
 ### Fase D — Cerebro real (backend)
+
 `api/main.py`: WebSocket `/ws/tutor`; system prompt obliga JSON `{reply, steps}`;
 `sanitize()` valida ids y clamps (el LLM nunca inventa números). `aiService.ts`: conecta,
 envía `{type:'chat', text, context: measures}`, aplica la respuesta como escena;
@@ -108,6 +113,7 @@ Groq✅clave/modelo 404→auto-fix; OpenAI 429 sin cuota; DeepSeek 402 sin saldo
 NVIDIA 410 modelo EOL 26-ago-2026; Gemini clave inválida (las de Google empiezan `AIza…`).
 
 ### Fase E — Laboratorio: herramientas + mundos + retos
+
 - **ToolPalette:** 🖐 mover · 📍 punto · 📏 segmento · ⭕ círculo · 🧹 volver al triángulo.
   Puntos libres `P1…`, segmentos `s1…`, círculos `c1…` (Esc cancela).
 - **`data/knowledge.ts` — 6 mundos** con historia + ejemplos reales + escena narrada:
@@ -120,11 +126,12 @@ NVIDIA 410 modelo EOL 26-ago-2026; Gemini clave inválida (las de Google empieza
 - La IA (local y remota) abre mundos (`world`) y lanza retos (`challenge`).
 
 ### 🔥 El crash de la Fase E (lección)
+
 `measures: measure({})` al inicializar el store → `pts.B.pos` de un objeto vacío →
 TypeError al importar → app congelada en negro. Fix: guard en `measure`
 (`if (!pts.O||!pts.B||!pts.A) return ZERO`) + estado inicial `{...ZERO}` +
 `buildTriangleScript()` vuelve al triángulo si no hay (`loadWorld(null)`).
-*Lección:* un crash en inicialización de store congela toda la app; DevTools Console es la
+_Lección:_ un crash en inicialización de store congela toda la app; DevTools Console es la
 primera parada. (Gemini sugirió optional chaining: cura síntoma, no causa.)
 
 ---
@@ -135,6 +142,7 @@ primera parada. (Gemini sugirió optional chaining: cura síntoma, no causa.)
 cursor {to|null,ms} · point {id,ms} · segment {id,ms} · pulse {id,ms}
 say {text} · wait {ms} · world {id} · challenge {id}
 ```
+
 Front y backend hablan esto. El backend emite `steps` ya sanitizados; el frontend los
 ejecuta con `playScene`. **No renombrar ni romper este contrato.**
 
@@ -197,7 +205,7 @@ python test_keys.py --apply
 ## 9. Cultura del equipo (no perder)
 
 - Probar como usuarios, analizar como ingenieros: playtest → lista → triaje
-  (🐛 bug /  polish / 🚀 feature) → fixes en archivos completos → commit.
+  (🐛 bug / polish / 🚀 feature) → fixes en archivos completos → commit.
 - El niño descubre con la mano: imanes, pulsos, celebraciones, retos en vivo.
 - La respuesta de la IA es una **escena**, no un párrafo.
 - "bronceado" queda como recordatorio eterno de no traducir matemática. 😄
@@ -207,6 +215,7 @@ python test_keys.py --apply
 ## Fase F — Fluidez y Libertad (29-ago-2026)
 
 Decisiones acordadas con el dueño:
+
 - Arrastre CONTINUO (sin cuantización a grilla): fluidez tipo GeoGebra a cualquier zoom.
   El imán de ÁNGULOS (⚡) se mantiene; 🧲 imán a la grilla es un botón opcional (default off).
 - FIX F1: arrastrar B mueve también A.x → el ángulo recto nunca se rompe.
@@ -227,7 +236,7 @@ Decisiones acordadas con el dueño:
 
 ---
 
-  ## Fase G1 — Libertad y Poder (29-ago-2026)
+## Fase G1 — Libertad y Poder (29-ago-2026)
 
 - Arranque LIBRE (decisión del rey): sin cadena por defecto; ⛓️ toggle en ToolPalette y footer.
 - Cadena ON: A solo vertical (B quieto), B horizontal (A sigue en x), O traslada el triángulo.
@@ -241,5 +250,85 @@ Decisiones acordadas con el dueño:
 - Tests: escudo "libertad" (A no arrastra a B) + escudo "cadena" (B arrastra a A con ⛓️).
 - Pendiente G2: tema claro(default)/oscuro/sistema, menú der. = estilos de vista (grillas fina/grande/
   circular/rombo/fondo blanco), panel de 4 pestañas (Álgebra·Herramientas·Tabla·Hoja de cálculo).
-- ⚠️ fix 30-ago: dragTo cadena esparcía la posición en vez del nodo → ids perdidos → crash de render; blindaje 
+- ⚠️ fix 30-ago: dragTo cadena esparcía la posición en vez del nodo → ids perdidos → crash de render; blindaje
   tri en TriangleCanvas.
+
+---
+
+## Fase G2 — Poder y Orden (29–30 ago 2026)
+
+- LOTE 1 (bugs G1–G6 + cimientos): libertad total (±5,000,000, 4 cuadrantes sin paredes);
+  el CANDADO manda sobre la cadena; cadena SOLO aplica a O/B/A; zoom poderoso
+  0.0005×–2,000,000× (coordinateTransform); themeStore (claro/oscuro/sistema, usePal/PALS);
+  clic derecho en vacío = menú de 5 estilos de vista (fina/grande/circular/rombo/blanco);
+  clic izquierdo limpio sobre objeto = menú (fijar/etiqueta/duplicar/eliminar/ocultar).
+- LOTE 2 (features): workspaces 📐 Gráfica / 📚 Descubrir (estilo DaVinci); SidePanel de
+  4 pestañas (∑ Álgebra · 🛠 Herramientas · 🧮 Tabla · ▦ Hoja); ChatPanel tematizado;
+  knowledge.ts → 12 mundos en 3 categorías (Ingeniería/Tecnología/Vida): +castle 🏰,
+  shooter 🎯, rocket 🚀, screen 📱, music , virus ; «🎬 Entrar» y «Jugar» regresan a
+  Gráfica (fix test 5); tema CLARO por defecto; FIX "angulito": el arco de θ nace entre
+  O→B y O→A en cualquier orientación; personalizaciones del rey restauradas y respetadas
+  (título "Tutor de IA de trigonometría", label "altura").
+  Incidente: import default inexistente de KNOWLEDGE → SyntaxError blanco; fix import
+  nombrado { KNOWLEDGE }. Lección: el PDF/OCR come llaves; verificar imports al reconstruir.
+  Commit lote 1: [f93e1f6] feat: F - fluidez, undo, menu contextual, guardar + tests Playwright.
+
+---
+
+## Fase H — La Refactoría (domingo 30 ago 2026)
+
+- Motivación del rey: escalabilidad (adiós monolito), carga rápida, álgebra viva y editable,
+  grillas visibles, Excel completo, tabla con calculadora real.
+
+1. canvasStore.ts → 4 SLICES compuestos en src/stores/slices/: cameraSlice · objectsSlice ·
+   historySlice · uiSlice + types.ts (contrato único) + src/utils/geometry.ts (mate pura).
+   API pública IDÉNTICA: cero componentes rotos por el refactor. Patrón elegido: un store,
+   cuatro módulos (mañana separables en stores reales sin tocar UI).
+2. VEREDICTO Tailwind: NO ahora. Migrar inline-styles dinámicos (theming por paleta JS) a
+   clases = regresión alta, beneficio cero. En su lugar: src/components/ui/primitives.tsx
+   (Btn, TextInput con useId, SectionTitle, ListRow) = sistema de componentes con tokens.
+   Migración gradual: lo nuevo nace con primitivas.
+3. Motor de hoja de cálculo extraído a src/utils/sheet.ts (puro): refs A1–F20, rangos
+   sum/avg/min/max, #CICLO/#ERR, shiftFormula (relleno ↓→ sin copiar-pegar).
+4. Tests unitarios NUEVOS: vitest (npm i -D vitest) + vitest.config.ts
+   (include src/\*_/**tests**/_.spec.ts) → 12/12: canvasStore.spec (6: 30-60-90, G1, G2/G5,
+   cadena+candado, undo/redo, cascada) + sheet.spec (6: grados/^, whitelist, refs, rangos,
+   ciclos, shift). Suite total del proyecto: 12 unit + 7 E2E (smoke 5 + algebra 2).
+5. Bugs cerrados: Álgebra VIVA+editable (EditValue con data-testid val-/edit-, blindada por
+   tests/algebra.spec.ts); grillas circular/rombo/grande VISIBLES (GridLayer memoizada en
+   components/canvas/layers/ + trazos mayores cada 5 + color gridStrong por tema); carga
+   inicial rápida (optimizeDeps.include + React.lazy(DiscoverWorkspace) + Suspense).
+6. Excel v2 (A–F×20 + barra de fórmulas + asa ▾ morada ↓→) y Tabla v2 (calculadora con
+   historial, f(x)/g(x), mini-gráfica SVG).
+7. H.1 accesibilidad: todos los inputs con id/name (useId en primitives, chat, edit-<id>)
+   → DevTools Issues en 0.
+
+- 🔧 Lecciones de `npm run build` (tsc -b, template con noUnusedLocals):
+  • TS6133: imports muertos (ZOOM_MIN/MAX en uiSlice) rompen el build; vitest NO los ve.
+  • TS2783: `{ locked:false, ...p }` → el spread pisa defaults; orden correcto `{ ...p, locked: p.locked ?? false }`.
+  • TS2339: `pb.x` no existe en PointNode → `pb.pos.x`.
+  • TS2459: Vec2 vive en coordinateTransform, no en slices/types.
+  • TS2769: Vite 8 (Rolldown) NO tipa manualChunks objeto → fuera; el code-splitting lo hace React.lazy.
+  • Carpetas `__tests__` con DOBLE guion bajo; cada spec vive en el **tests** de su carpeta
+  madre (sheet.spec en utils/, no en stores/: los imports relativos mandan).
+- Mapa de archivos (delta): src/stores/slices/{types,cameraSlice,objectsSlice,historySlice,
+  uiSlice}.ts · src/utils/{geometry,sheet,expr}.ts · src/components/ui/primitives.tsx ·
+  src/components/canvas/layers/GridLayer.tsx · src/stores/**tests**/canvasStore.spec.ts ·
+  src/utils/**tests**/sheet.spec.ts · tests/algebra.spec.ts · vitest.config.ts ·
+  src/components/panel/{SidePanel,ToolsTab,TableTab,Spreadsheet,DiscoverWorkspace}.tsx.
+  Rituales: `npx vitest run` (12) · `npx playwright test` (7) · `npm run build` (gate tsc).
+  Commits propuestos: feat: G2 - temas, workspaces, 4 pestañas, 12 mundos ·
+  feat: H - slices x4 + tests, excel v2, tabla v2, grillas visibles, algebra viva, code-splitting.
+
+- Tablero de equipo (actualizado — traer al próximo fix)
+  🚀 El TOQUECITO DE AMOR (objetivo final): modo niño intuitivo — que un niño de 10 años
+  juegue sin leer nada; la complejidad densa ya está metida, ahora la intuición.
+  🚀 Micrófono (SpeechRecognition web → Whisper) para hablarle al tutor.
+  🚀 Herramienta Polígono (cerrar con clic al primer punto).
+  🚀 Círculo unitario con onda seno sincronizada al arrastrar (world wheel ya lo insinúa).
+  🚀 Exportar/importar mundos JSON + nube; imprimir/examen (pedido histórico de GeoGebra).
+  🚀 Voz premium ElevenLabs manteniendo la interfaz speak().
+  🚀 «Explícame cada objeto» estilo Photoshop (pedido de la lista original).
+  ✨ F2 EBUSY ocasional de Vite (entorno): reiniciar dev server; si reaparece, exclusión Defender.
+- El sueño sigue vigente: tablet + niño + IA que dibuja, narra, señala y celebra. 💛
+  Última actualización: domingo 30 de agosto de 2026.
