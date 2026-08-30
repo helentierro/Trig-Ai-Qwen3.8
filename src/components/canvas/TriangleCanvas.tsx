@@ -1,90 +1,14 @@
 // src/components/canvas/TriangleCanvas.tsx
-import { useEffect, useRef, type ReactNode } from 'react';
-import { useCanvasStore, initDefaultWorld, type GridStyle } from '../../stores/canvasStore';
+import { useEffect, useRef } from 'react';
+import { useCanvasStore, initDefaultWorld } from '../../stores/canvasStore';
 import { useThemeStore, usePal } from '../../stores/themeStore';
-import { type Camera, niceGridStep, screenToWorld, worldToScreen, fmtCoord } from '../../utils/coordinateTransform';
+import { worldToScreen } from '../../utils/coordinateTransform';
 import { InteractionLayer } from './InteractionLayer';
 import { ToolPalette } from './ToolPalette';
 import { ContextMenu } from './ContextMenu';
+import { GridLayer } from './layers/GridLayer';
 
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
-
-function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pal: ReturnType<typeof usePal>): ReactNode[] {
-  const els: ReactNode[] = [];
-  const tl = screenToWorld({ x: 0, y: 0 }, cam);
-  const br = screenToWorld({ x: vp.w, y: vp.h }, cam);
-  const o = worldToScreen({ x: 0, y: 0 }, cam);
-  const dec = step < 1 ? (step < 0.1 ? 2 : 1) : 0;
-  const ny = Math.min(Math.max(o.y, 10), vp.h - 16) + 14;
-  const nx = Math.min(Math.max(o.x, 4), vp.w - 34) + 6;
-  for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++) {
-    const x = i * step;
-    if (x === 0) continue;
-    const sx = worldToScreen({ x, y: 0 }, cam).x;
-    els.push(<text key={`vt${i}`} x={sx + 4} y={ny} fill={pal.text} fontSize={10}>{fmtCoord(x)}</text>);
-  }
-  for (let i = Math.ceil(br.y / step); i * step <= tl.y; i++) {
-    const y = i * step;
-    if (y === 0) continue;
-    const sy = worldToScreen({ x: 0, y }, cam).y;
-    els.push(<text key={`ht${i}`} x={nx} y={sy - 4} fill={pal.text} fontSize={10}>{fmtCoord(y)}</text>);
-  }
-  return els;
-}
-
-function axesLines(cam: Camera, vp: { w: number; h: number }, pal: ReturnType<typeof usePal>): ReactNode[] {
-  const o = worldToScreen({ x: 0, y: 0 }, cam);
-  return [
-    <line key="axV" x1={o.x} y1={0} x2={o.x} y2={vp.h} stroke={pal.axis} />,
-    <line key="axH" x1={0} y1={o.y} x2={vp.w} y2={o.y} stroke={pal.axis} />,
-  ];
-}
-
-function gridElements(style: GridStyle, cam: Camera, vp: { w: number; h: number }, pal: ReturnType<typeof usePal>): ReactNode[] {
-  const els: ReactNode[] = [];
-  const tl = screenToWorld({ x: 0, y: 0 }, cam);
-  const br = screenToWorld({ x: vp.w, y: vp.h }, cam);
-  const o = worldToScreen({ x: 0, y: 0 }, cam);
-
-  if (style === 'blank') return [...axesLines(cam, vp, pal), ...axisNumbers(cam, vp, niceGridStep(cam.zoom, 64), pal)];
-
-  if (style === 'circular') {
-    const step = niceGridStep(cam.zoom, 64);
-    const maxR = Math.hypot(Math.max(Math.abs(tl.x), Math.abs(br.x)), Math.max(Math.abs(tl.y), Math.abs(br.y)));
-    for (let r = step; r <= maxR; r += step) {
-      els.push(<circle key={`c${r}`} cx={o.x} cy={o.y} r={r * cam.zoom} fill="none" stroke={pal.grid} />);
-    }
-    return [...els, ...axesLines(cam, vp, pal), ...axisNumbers(cam, vp, step, pal)];
-  }
-
-  if (style === 'diamond') {
-    const step = niceGridStep(cam.zoom, 64);
-    for (let c = Math.ceil((tl.y - br.x) / step) * step; c <= br.y - tl.x; c += step) {
-      const p1 = worldToScreen({ x: tl.x, y: tl.x + c }, cam);
-      const p2 = worldToScreen({ x: br.x, y: br.x + c }, cam);
-      els.push(<line key={`d1${c}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={pal.grid} />);
-    }
-    for (let c = Math.ceil((tl.y + tl.x) / step) * step; c <= br.y + br.x; c += step) {
-      const p1 = worldToScreen({ x: tl.x, y: -tl.x + c }, cam);
-      const p2 = worldToScreen({ x: br.x, y: -br.x + c }, cam);
-      els.push(<line key={`d2${c}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={pal.grid} />);
-    }
-    return [...els, ...axesLines(cam, vp, pal), ...axisNumbers(cam, vp, step, pal)];
-  }
-
-  const step = niceGridStep(cam.zoom, style === 'large' ? 170 : 64);
-  for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++) {
-    const x = i * step;
-    const sx = worldToScreen({ x, y: 0 }, cam).x;
-    els.push(<line key={`v${i}`} x1={sx} y1={0} x2={sx} y2={vp.h} stroke={x === 0 ? pal.axis : pal.grid} />);
-  }
-  for (let i = Math.ceil(br.y / step); i * step <= tl.y; i++) {
-    const y = i * step;
-    const sy = worldToScreen({ x: 0, y }, cam).y;
-    els.push(<line key={`h${i}`} x1={0} y1={sy} x2={vp.w} y2={sy} stroke={y === 0 ? pal.axis : pal.grid} />);
-  }
-  return [...els, ...axisNumbers(cam, vp, step, pal)];
-}
 
 export function TriangleCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -121,7 +45,6 @@ export function TriangleCanvas() {
   const vis = (id: string) => segments.find((g) => g.id === id)?.visible ?? true;
   const done = (drawn['hyp'] ?? 1) >= 1;
 
-  /* FIX "angulito": el arco nace entre O→B y O→A, en CUALQUIER orientación. */
   const angleArc = () => {
     if (!tri || !done) return null;
     const a1 = Math.atan2(-(SP.B.y - SP.O.y), SP.B.x - SP.O.x);
@@ -146,8 +69,8 @@ export function TriangleCanvas() {
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', background: C.bg, userSelect: 'none' }}>
       <InteractionLayer>
-        <svg width={viewport.w} height={viewport.h}>
-          {gridElements(gridStyle, cam, viewport, C)}
+        <svg width={viewport.w} height={viewport.h} style={{ shapeRendering: 'geometricPrecision' }}>
+          <GridLayer cam={cam} vp={viewport} style={gridStyle} pal={C} />
           {tri && done && lit('area') && (
             <polygon points={`${SP.O.x},${SP.O.y} ${SP.B.x},${SP.B.y} ${SP.A.x},${SP.A.y}`} fill="#38bdf8" fillOpacity={0.12} />
           )}
@@ -168,7 +91,7 @@ export function TriangleCanvas() {
                     className={pulseId === seg.id ? 'glow-pulse' : undefined}
                     strokeOpacity={pulseId === seg.id ? undefined : 0.3} />
                 )}
-                <line x1={P.x} y1={P.y} x2={Q.x} y2={Q.y} stroke={col} strokeWidth={t >= 1 && lit(seg.id) ? 3.5 : 2.5} strokeLinecap="round" />
+                <line x1={P.x} y1={P.y} x2={Q.x} y2={Q.y} stroke={col} strokeWidth={t >= 1 && lit(seg.id) ? 3.5 : 3} strokeLinecap="round" />
               </g>
             );
           })}
@@ -189,7 +112,8 @@ export function TriangleCanvas() {
             const sp = SP[p.id];
             const pop = drawn[p.id] ?? 1;
             const active = hoverId === p.id || dragId === p.id;
-            const off = { O: { x: -18, y: 18 }, B: { x: 10, y: 18 }, A: { x: -5, y: -12 } }[p.id as 'O' | 'B' | 'A'] ?? { x: 8, y: -12 };
+            // F3: B baja un poco más para no pisar los números del eje
+            const off = { O: { x: -18, y: 18 }, B: { x: 10, y: 24 }, A: { x: -5, y: -12 } }[p.id as 'O' | 'B' | 'A'] ?? { x: 8, y: -12 };
             return (
               <g key={p.id}>
                 {(active || selectedId === p.id || pulseId === p.id) && (

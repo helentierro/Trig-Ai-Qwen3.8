@@ -1,29 +1,35 @@
-// src/components/panel/AlgebraPanel.tsx
+// src/components/panel/AlgebraPanel.tsx — Fase H: valores vivos y editables garantizados
 import { useState, type ReactNode } from 'react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { usePal } from '../../stores/themeStore';
+import { SectionTitle } from '../ui/primitives';
 
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
 const nums = (t: string) => (t.match(/-?\d+(\.\d+)?/g) || []).map(Number);
-const displayName = (id: string) => (id === 'height' ? 'altura' : id); // personalización del rey
+const displayName = (id: string) => (id === 'height' ? 'altura' : id);
 
-const H = ({ children, color }: { children: ReactNode; color: string }) => (
-  <div style={{ color, fontSize: 10, letterSpacing: 1.5, padding: '8px 10px 2px', textTransform: 'uppercase' }}>{children}</div>
-);
-
-function EditValue({ value, onCommit, pal }: { value: string; onCommit: (v: string) => void; pal: ReturnType<typeof usePal> }) {
+function EditValue({ id, value, onCommit }: { id: string; value: string; onCommit: (v: string) => void }) {
+  const pal = usePal();
   const [editing, setEditing] = useState(false);
   if (!editing) return (
-    <span onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-      title="Clic para editar" style={{ color: pal.dim, cursor: 'text', borderBottom: `1px dashed ${pal.dim}` }}> = {value}</span>
+    <span data-testid={`val-${id}`}
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      title="Clic para editar"
+      style={{ color: pal.dim, cursor: 'text', borderBottom: `1px dashed ${pal.accent}` }}>
+      {' '}= {value} <span style={{ opacity: 0.6, fontSize: 10 }}>✎</span>
+    </span>
   );
   return (
     <input
       autoFocus defaultValue={value}
+      data-testid={`edit-${id}`}
       onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => { if (e.key === 'Enter') { onCommit((e.target as HTMLInputElement).value); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { onCommit((e.target as HTMLInputElement).value); setEditing(false); }
+        if (e.key === 'Escape') setEditing(false);
+      }}
       onBlur={(e) => { onCommit(e.target.value); setEditing(false); }}
-      style={{ width: 90, background: pal.card, border: `1px solid ${pal.accent}`, borderRadius: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace', padding: '1px 4px' }}
+      style={{ width: 96, background: pal.card, border: `1px solid ${pal.accent}`, borderRadius: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace', padding: '1px 4px' }}
     />
   );
 }
@@ -38,10 +44,7 @@ function Row({ id, swatch, title, value, onCommit, canHide }: {
   const setHover = useCanvasStore((s) => s.setHover);
   const setSelected = useCanvasStore((s) => s.setSelected);
   const visible = useCanvasStore((s) => {
-    const p = s.points[id];
-    const g = s.segments.find((x) => x.id === id);
-    const c = s.circles.find((x) => x.id === id);
-    const obj = p ?? g ?? c;
+    const obj = s.points[id] ?? s.segments.find((x) => x.id === id) ?? s.circles.find((x) => x.id === id);
     return obj ? obj.visible : true;
   });
   const active = hoverId === id || selectedId === id || pulseId === id;
@@ -62,7 +65,7 @@ function Row({ id, swatch, title, value, onCommit, canHide }: {
       <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {title}
         {value !== undefined && (onCommit
-          ? <EditValue value={value} onCommit={onCommit} pal={pal} />
+          ? <EditValue id={id} value={value} onCommit={onCommit} />
           : <span style={{ color: pal.dim }}> = {value}</span>)}
       </span>
       {canHide && (
@@ -76,7 +79,6 @@ function Row({ id, swatch, title, value, onCommit, canHide }: {
   );
 }
 
-/* Cuerpo reutilizable dentro del SidePanel de 4 pestañas */
 export function AlgebraBody() {
   const pal = usePal();
   const points = useCanvasStore((s) => s.points);
@@ -90,8 +92,10 @@ export function AlgebraBody() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <div style={{ padding: '0 10px 6px', color: pal.faint, fontSize: 10.5 }}>Los valores con guion son editables ✏️</div>
-      <H color={pal.faint}>Puntos</H>
+      <div style={{ padding: '0 10px 6px', color: pal.faint, fontSize: 10.5 }}>
+        Todo valor con ✎ es editable: escribes y la figura se mueve. Todo se actualiza EN VIVO.
+      </div>
+      <SectionTitle>Puntos</SectionTitle>
       {Object.values(points).map((p) => (
         <Row key={p.id} id={p.id} canHide
           swatch={<span style={{ width: 9, height: 9, borderRadius: '50%', background: pal.panelBg, border: `2px solid ${pal.point}`, flexShrink: 0 }} />}
@@ -99,7 +103,7 @@ export function AlgebraBody() {
           value={`(${fmt(p.pos.x)}, ${fmt(p.pos.y)})`}
           onCommit={(v) => { const n = nums(v); if (n.length >= 2) st().setPointPos(p.id, n[0], n[1]); }} />
       ))}
-      <H color={pal.faint}>Segmentos</H>
+      <SectionTitle>Segmentos</SectionTitle>
       {segments.map((g) => {
         const pa = points[g.a]?.pos, pb = points[g.b]?.pos;
         const len = pa && pb ? Math.hypot(pb.x - pa.x, pb.y - pa.y) : 0;
@@ -113,7 +117,7 @@ export function AlgebraBody() {
       })}
       {circles.length > 0 && (
         <>
-          <H color={pal.faint}>Círculos</H>
+          <SectionTitle>Círculos</SectionTitle>
           {circles.map((c) => (
             <Row key={c.id} id={c.id} canHide
               swatch={<span style={{ width: 11, height: 11, borderRadius: '50%', border: `2px solid ${pal.free}`, flexShrink: 0 }} />}
@@ -123,7 +127,7 @@ export function AlgebraBody() {
       )}
       {hasTriangle ? (
         <>
-          <H color={pal.faint}>Medidas</H>
+          <SectionTitle>Medidas</SectionTitle>
           <Row id="angleO" swatch={<span style={{ color: pal.angle }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
             onCommit={chain ? (v) => { const n = nums(v); if (n.length) st().setAngleDeg(n[0]); } : undefined} />
           <Row id="angleB" swatch={<span style={{ color: pal.angle }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
@@ -146,7 +150,6 @@ export function AlgebraBody() {
   );
 }
 
-/* Compat: panel standalone antiguo */
 export function AlgebraPanel() {
   const pal = usePal();
   const [open, setOpen] = useState(true);

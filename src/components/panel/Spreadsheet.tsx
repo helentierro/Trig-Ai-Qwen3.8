@@ -1,113 +1,103 @@
-// src/components/panel/Spreadsheet.tsx
+// src/components/panel/Spreadsheet.tsx — Fase H: mini-Excel completo
 import { useMemo, useState } from 'react';
-import { evalExpr, fmtN } from '../../utils/expr';
+import { COLS, ROWS, computeGrid, shiftFormula, type Raw } from '../../utils/sheet';
+import { fmtN } from '../../utils/expr';
 import { usePal } from '../../stores/themeStore';
-
-const COLS = ['A', 'B', 'C', 'D'] as const;
-const ROWS = 12;
-type CellId = string; // "A1"
+import { SectionTitle, TextInput } from '../ui/primitives';
 
 export function Spreadsheet() {
   const pal = usePal();
-  const [raw, setRaw] = useState<Record<CellId, string>>({ A1: '1', A2: '2', B1: '=A1*10', B2: '=A2*10' });
-  const [sel, setSel] = useState<CellId | null>(null);
-  const [fill, setFill] = useState<{ col: string; from: number; to: number } | null>(null);
+  const [raw, setRaw] = useState<Raw>({ A1: '1', A2: '2', A3: '=A1+A2', B1: '=A1*10', B2: '=A2*10', C1: '=sum(A1:A3)' });
+  const [sel, setSel] = useState<string>('A1');
+  const [fill, setFill] = useState<{ from: string; to: string } | null>(null);
 
-  const values = useMemo(() => {
-    const cache: Record<CellId, number | null> = {};
-    const compute = (id: CellId, seen: Set<CellId>): number | null => {
-      if (id in cache) return cache[id];
-      const r = raw[id];
-      if (r === undefined || r === '') return (cache[id] = null);
-      if (!r.startsWith('=')) {
-        const n = Number(r.replace(',', '.'));
-        return (cache[id] = isFinite(n) ? n : null);
-      }
-      if (seen.has(id)) return null; // ciclo
-      seen.add(id);
-      const expr = r.slice(1).replace(/([a-dA-D])(\d+)/g, (_m, c: string, row: string) => {
-        const v = compute(`${c.toUpperCase()}${row}`, seen);
-        return v === null ? '0' : `(${v})`;
-      });
-      const v = evalExpr(expr);
-      seen.delete(id);
-      return (cache[id] = v);
-    };
-    const out: Record<CellId, number | null> = {};
-    for (const c of COLS) for (let i = 1; i <= ROWS; i++) out[`${c}${i}`] = compute(`${c}${i}`, new Set());
-    return out;
-  }, [raw]);
+  const { values, errors } = useMemo(() => computeGrid(raw), [raw]);
 
-  const shiftFormula = (formula: string, dRow: number) =>
-    formula.replace(/([a-dA-D])(\d+)/g, (_m, c, row) => `${c.toUpperCase()}${Math.max(1, Math.min(ROWS, +row + dRow))}`);
+  const setCell = (id: string, v: string) => setRaw({ ...raw, [id]: v });
 
   const applyFill = () => {
     if (!fill || fill.to === fill.from) { setFill(null); return; }
-    const src = `${fill.col}${fill.from}`;
-    const formula = raw[src];
-    if (formula && formula.startsWith('=')) {
+    const src = raw[fill.from];
+    if (src?.startsWith('=')) {
+      const c1 = fill.from[0], r1 = +fill.from.slice(1);
+      const c2 = fill.to[0], r2 = +fill.to.slice(1);
       const next = { ...raw };
-      const lo = Math.min(fill.from, fill.to), hi = Math.max(fill.from, fill.to);
-      for (let i = lo; i <= hi; i++) if (i !== fill.from) next[`${fill.col}${i}`] = shiftFormula(formula, i - fill.from);
+      const ci1 = COLS.indexOf(c1 as typeof COLS[number]), ci2 = COLS.indexOf(c2 as typeof COLS[number]);
+      for (let ci = Math.min(ci1, ci2); ci <= Math.max(ci1, ci2); ci++) {
+        for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) {
+          const id = `${COLS[ci]}${r}`;
+          if (id !== fill.from) next[id] = shiftFormula(src, r - r1, ci - ci1);
+        }
+      }
       setRaw(next);
     }
     setFill(null);
   };
 
-  const cellStyle = (id: CellId): React.CSSProperties => ({
-    width: '25%', padding: '5px 6px', fontFamily: 'monospace', fontSize: 11.5,
-    border: `1px solid ${pal.border}`, background: sel === id ? 'rgba(124,58,237,.12)' : pal.panelBg,
-    color: pal.bubbleText, position: 'relative',
-  });
+  const inFill = (id: string) => {
+    if (!fill) return false;
+    const c1 = fill.from[0], r1 = +fill.from.slice(1), c2 = fill.to[0], r2 = +fill.to.slice(1);
+    const ci = COLS.indexOf(id[0] as typeof COLS[number]);
+    return ci >= Math.min(COLS.indexOf(c1 as typeof COLS[number]), COLS.indexOf(c2 as typeof COLS[number]))
+      && ci <= Math.max(COLS.indexOf(c1 as typeof COLS[number]), COLS.indexOf(c2 as typeof COLS[number]))
+      && +id.slice(1) >= Math.min(r1, r2) && +id.slice(1) <= Math.max(r1, r2);
+  };
 
   return (
     <div style={{ padding: 10 }} onMouseUp={applyFill}>
-      <div style={{ color: pal.faint, fontSize: 10.5, lineHeight: 1.5, marginBottom: 8 }}>
-        Fórmulas con <code>=</code> (ej: <code>=A1*10</code>, <code>=A1+A2</code>).
-        Selecciona una celda con fórmula y <b>arrastra el cuadrito morado ▾ hacia abajo</b>: la fórmula se aplica a todas, estilo Excel.
+      <SectionTitle>Barra de fórmulas</SectionTitle>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: pal.accent, width: 30 }}>{sel}</span>
+        <TextInput value={raw[sel] ?? ''} onChange={(v) => setCell(sel, v)} placeholder="ej: =A1*10 · =sum(A1:A5)" />
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>{COLS.map((c) => (
-            <th key={c} style={{ padding: 4, fontSize: 10, color: pal.faint, border: `1px solid ${pal.border}`, background: pal.card }}>{c}</th>
-          ))}</tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: ROWS }, (_, i) => i + 1).map((row) => (
-            <tr key={row}>
-              {COLS.map((col) => {
-                const id = `${col}${row}`;
-                const v = values[id];
-                const isFormula = raw[id]?.startsWith('=');
-                const showHandle = sel === id && isFormula;
-                return (
-                  <td key={id} style={cellStyle(id)}
-                    onClick={() => setSel(id)}
-                    onMouseEnter={() => { if (fill) setFill({ ...fill, to: row }); }}
-                    onDoubleClick={() => {
-                      const next = prompt(`Editar ${id}:`, raw[id] ?? '');
-                      if (next !== null) setRaw({ ...raw, [id]: next });
-                    }}>
-                    {sel === id
-                      ? <input autoFocus value={raw[id] ?? ''} onChange={(e) => setRaw({ ...raw, [id]: e.target.value })}
-                          style={{ width: '100%', background: 'transparent', border: 'none', outline: `1px solid ${pal.accent}`, color: pal.bubbleText, fontFamily: 'monospace', fontSize: 11.5, padding: 0 }} />
-                      : <span style={{ color: isFormula ? pal.accent : pal.bubbleText }}>{v === null ? '' : fmtN(v)}</span>}
-                    {showHandle && (
-                      <span
-                        onMouseDown={(e) => { e.stopPropagation(); setFill({ col, from: row, to: row }); }}
-                        title="Arrastra hacia abajo para rellenar"
-                        style={{ position: 'absolute', right: 1, bottom: 1, width: 8, height: 8, background: '#7c3aed', borderRadius: 2, cursor: 'crosshair' }} />
-                    )}
-                    {fill && fill.col === col && row >= Math.min(fill.from, fill.to) && row <= Math.max(fill.from, fill.to) && (
-                      <span style={{ position: 'absolute', inset: 0, border: '1px dashed #7c3aed', pointerEvents: 'none' }} />
-                    )}
-                  </td>
-                );
-              })}
+      <div style={{ color: pal.faint, fontSize: 10.5, lineHeight: 1.6, marginBottom: 8 }}>
+        Fórmulas con <code>=</code> · funciones: <code>sum avg min max</code> con rangos (A1:A5) ·
+        operadores + - * / ^ · sin cos tan sqrt abs · Arrastra el <b style={{ color: '#7c3aed' }}>▾ morado</b> hacia
+        abajo o la derecha: relleno estilo Excel sin copiar-pegar.
+      </div>
+      <div style={{ maxHeight: 380, overflow: 'auto', border: `1px solid ${pal.border}`, borderRadius: 8 }}>
+        <table style={{ borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11.5, width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ padding: 4, border: `1px solid ${pal.border}`, background: pal.card, color: pal.faint, fontSize: 10 }}></th>
+              {COLS.map((c) => (
+                <th key={c} style={{ padding: 4, border: `1px solid ${pal.border}`, background: pal.card, color: pal.faint, fontSize: 10, minWidth: 64 }}>{c}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Array.from({ length: ROWS }, (_, i) => i + 1).map((row) => (
+              <tr key={row}>
+                <td style={{ padding: 4, border: `1px solid ${pal.border}`, background: pal.card, color: pal.faint, fontSize: 10, textAlign: 'center' }}>{row}</td>
+                {COLS.map((col) => {
+                  const id = `${col}${row}`;
+                  const v = values[id];
+                  const err = errors[id];
+                  const isFormula = raw[id]?.startsWith('=');
+                  return (
+                    <td key={id}
+                      onClick={() => setSel(id)}
+                      onMouseEnter={() => { if (fill) setFill({ ...fill, to: id }); }}
+                      style={{
+                        padding: '4px 6px', border: `1px solid ${pal.border}`, position: 'relative', cursor: 'cell',
+                        background: sel === id ? 'rgba(124,58,237,.14)' : inFill(id) ? 'rgba(124,58,237,.07)' : pal.panelBg,
+                        color: err ? '#f87171' : isFormula ? pal.accent : pal.bubbleText,
+                        outline: sel === id ? '1px solid #7c3aed' : 'none',
+                      }}>
+                      {v === null ? (raw[id] && !isFormula ? raw[id] : err ?? '') : fmtN(v)}
+                      {sel === id && isFormula && !err && (
+                        <span onMouseDown={(e) => { e.stopPropagation(); setFill({ from: id, to: id }); }}
+                          title="Rellenar (arrastra ↓ o →)"
+                          style={{ position: 'absolute', right: 1, bottom: 1, width: 8, height: 8, background: '#7c3aed', borderRadius: 2, cursor: 'crosshair' }} />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

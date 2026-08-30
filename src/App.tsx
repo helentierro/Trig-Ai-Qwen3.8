@@ -1,14 +1,16 @@
-// src/App.tsx
-import { useEffect, useState } from 'react';
+// src/App.tsx — Fase H: carga rápida (React.lazy + Suspense para el workspace Descubrir)
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { TriangleCanvas } from './components/canvas/TriangleCanvas';
 import { SidePanel } from './components/panel/SidePanel';
 import { ChatPanel } from './components/chat/ChatPanel';
-import { DiscoverWorkspace } from './components/panel/DiscoverWorkspace';
 import { useCanvasStore } from './stores/canvasStore';
 import { useThemeStore, usePal } from './stores/themeStore';
 import { runConstruction } from './services/scenePlayer';
 import { useTeachableMoments } from './hooks/useTeachableMoments';
 import { startChallengeWatcher } from './stores/challengeStore';
+
+const DiscoverWorkspace = lazy(() =>
+  import('./components/panel/DiscoverWorkspace').then((m) => ({ default: m.DiscoverWorkspace })));
 
 export default function App() {
   useTeachableMoments();
@@ -88,7 +90,9 @@ export default function App() {
           </footer>
         </>
       ) : (
-        <DiscoverWorkspace onEnterWorld={() => setWs('graph')} />
+        <Suspense fallback={<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.dim }}>📚 cargando Descubrir…</div>}>
+          <DiscoverWorkspace onEnterWorld={() => setWs('graph')} />
+        </Suspense>
       )}
 
       {toast && (
