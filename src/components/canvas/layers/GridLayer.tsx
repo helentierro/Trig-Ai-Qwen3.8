@@ -1,4 +1,4 @@
-// src/components/canvas/layers/GridLayer.tsx — capa de grilla memoizada (perf + visibilidad Fase H)
+// src/components/canvas/layers/GridLayer.tsx — Entrega 3: grillas que SE VEN
 import { memo, type ReactNode } from 'react';
 import { type Camera, niceGridStep, screenToWorld, worldToScreen, fmtCoord } from '../../../utils/coordinateTransform';
 import type { GridStyle } from '../../../stores/canvasStore';
@@ -14,12 +14,12 @@ function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pa
   for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++) {
     const x = i * step;
     if (x === 0) continue;
-    els.push(<text key={`vt${i}`} x={worldToScreen({ x, y: 0 }, cam).x + 4} y={ny} fill={pal.text} fontSize={10}>{fmtCoord(x)}</text>);
+    els.push(<text key={`vt${i}`} x={worldToScreen({ x, y: 0 }, cam).x + 4} y={ny} fill={pal.text} fontSize={11}>{fmtCoord(x)}</text>);
   }
   for (let i = Math.ceil(br.y / step); i * step <= tl.y; i++) {
     const y = i * step;
     if (y === 0) continue;
-    els.push(<text key={`ht${i}`} x={nx} y={worldToScreen({ x: 0, y }, cam).y - 4} fill={pal.text} fontSize={10}>{fmtCoord(y)}</text>);
+    els.push(<text key={`ht${i}`} x={nx} y={worldToScreen({ x: 0, y }, cam).y - 4} fill={pal.text} fontSize={11}>{fmtCoord(y)}</text>);
   }
   return els;
 }
@@ -27,8 +27,8 @@ function axisNumbers(cam: Camera, vp: { w: number; h: number }, step: number, pa
 function axes(cam: Camera, vp: { w: number; h: number }, pal: Pal): ReactNode[] {
   const o = worldToScreen({ x: 0, y: 0 }, cam);
   return [
-    <line key="axV" x1={o.x} y1={0} x2={o.x} y2={vp.h} stroke={pal.axis} strokeWidth={1.4} />,
-    <line key="axH" x1={0} y1={o.y} x2={vp.w} y2={o.y} stroke={pal.axis} strokeWidth={1.4} />,
+    <line key="axV" x1={o.x} y1={0} x2={o.x} y2={vp.h} stroke={pal.axis} strokeWidth={2} />,
+    <line key="axH" x1={0} y1={o.y} x2={vp.w} y2={o.y} stroke={pal.axis} strokeWidth={2} />,
   ];
 }
 
@@ -47,7 +47,7 @@ function build(style: GridStyle, cam: Camera, vp: { w: number; h: number }, pal:
     for (let r = step; r <= maxR; r += step, k++) {
       const major = k % 5 === 0;
       els.push(<circle key={`c${k}`} cx={o.x} cy={o.y} r={r * cam.zoom} fill="none"
-        stroke={major ? pal.axis : pal.gridStrong} strokeWidth={major ? 1.4 : 1.1} />);
+        stroke={major ? pal.axis : pal.gridStrong} strokeWidth={major ? 2 : 1.4} />);
     }
     return [...els, ...axes(cam, vp, pal), ...axisNumbers(cam, vp, step, pal)];
   }
@@ -58,33 +58,32 @@ function build(style: GridStyle, cam: Camera, vp: { w: number; h: number }, pal:
     for (let c = Math.ceil((tl.y - br.x) / step) * step; c <= br.y - tl.x; c += step, k++) {
       const p1 = worldToScreen({ x: tl.x, y: tl.x + c }, cam);
       const p2 = worldToScreen({ x: br.x, y: br.x + c }, cam);
-      els.push(<line key={`d1${k}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={k % 5 === 0 ? pal.axis : pal.gridStrong} strokeWidth={1.1} />);
+      els.push(<line key={`d1${k}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={k % 5 === 0 ? pal.axis : pal.gridStrong} strokeWidth={k % 5 === 0 ? 2 : 1.4} />);
     }
     k = 0;
     for (let c = Math.ceil((tl.y + tl.x) / step) * step; c <= br.y + br.x; c += step, k++) {
       const p1 = worldToScreen({ x: tl.x, y: -tl.x + c }, cam);
       const p2 = worldToScreen({ x: br.x, y: -br.x + c }, cam);
-      els.push(<line key={`d2${k}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={k % 5 === 0 ? pal.axis : pal.gridStrong} strokeWidth={1.1} />);
+      els.push(<line key={`d2${k}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={k % 5 === 0 ? pal.axis : pal.gridStrong} strokeWidth={k % 5 === 0 ? 2 : 1.4} />);
     }
     return [...els, ...axes(cam, vp, pal), ...axisNumbers(cam, vp, step, pal)];
   }
 
-  // fine | large — líneas mayores cada 5, más contraste (adiós borroso)
+  // fine | large — menores visibles, mayores contundentes
   const step = niceGridStep(cam.zoom, style === 'large' ? 170 : 64);
-  let k = 0;
-  for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++, k++) {
+  for (let i = Math.ceil(tl.x / step); i * step <= br.x; i++) {
     const x = i * step;
     const sx = worldToScreen({ x, y: 0 }, cam).x;
     const major = i % 5 === 0;
     els.push(<line key={`v${i}`} x1={sx} y1={0} x2={sx} y2={vp.h}
-      stroke={x === 0 ? pal.axis : major ? pal.gridStrong : pal.grid} strokeWidth={x === 0 ? 1.4 : major ? 1.2 : 1} />);
+      stroke={x === 0 ? pal.axis : major ? pal.gridStrong : pal.grid} strokeWidth={x === 0 ? 2 : major ? 1.8 : 1.3} />);
   }
-  for (let i = Math.ceil(br.y / step); i * step <= tl.y; i++, k++) {
+  for (let i = Math.ceil(br.y / step); i * step <= tl.y; i++) {
     const y = i * step;
     const sy = worldToScreen({ x: 0, y }, cam).y;
     const major = i % 5 === 0;
     els.push(<line key={`h${i}`} x1={0} y1={sy} x2={vp.w} y2={sy}
-      stroke={y === 0 ? pal.axis : major ? pal.gridStrong : pal.grid} strokeWidth={y === 0 ? 1.4 : major ? 1.2 : 1} />);
+      stroke={y === 0 ? pal.axis : major ? pal.gridStrong : pal.grid} strokeWidth={y === 0 ? 2 : major ? 1.8 : 1.3} />);
   }
   return [...els, ...axisNumbers(cam, vp, step, pal)];
 }

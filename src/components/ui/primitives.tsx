@@ -1,5 +1,5 @@
-// src/components/ui/primitives.tsx — sistema de componentes con tokens (Fase H)
-import type { CSSProperties, ReactNode } from 'react';
+// src/components/ui/primitives.tsx — Entrega 3: TextInput con useId (accesibilidad)
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import { usePal } from '../../stores/themeStore';
 
 export function SectionTitle({ children }: { children: ReactNode }) {
@@ -26,13 +26,15 @@ export function Btn({ children, onClick, active, danger, style, title, disabled 
   );
 }
 
-export function TextInput({ value, onChange, onEnter, placeholder, style, mono = true }: {
+export function TextInput({ value, onChange, onEnter, placeholder, style, mono = true, id: idProp }: {
   value: string; onChange: (v: string) => void; onEnter?: () => void;
-  placeholder?: string; style?: CSSProperties; mono?: boolean;
+  placeholder?: string; style?: CSSProperties; mono?: boolean; id?: string;
 }) {
   const pal = usePal();
+  const autoId = useId();
+  const id = idProp ?? autoId;
   return (
-    <input value={value} placeholder={placeholder}
+    <input id={id} name={id} value={value} placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) onEnter(); }}
       style={{

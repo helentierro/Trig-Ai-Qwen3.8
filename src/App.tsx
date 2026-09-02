@@ -1,4 +1,4 @@
-// src/App.tsx — Fase I (Día 1): Error Boundary + estabilidad
+// src/App.tsx — Entrega 3: ErrorBoundary v2 + todo lo anterior
 import { Component, Suspense, lazy, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { TriangleCanvas } from './components/canvas/TriangleCanvas';
 import { SidePanel } from './components/panel/SidePanel';
@@ -13,7 +13,6 @@ const DiscoverWorkspace = lazy(() =>
   import('./components/panel/DiscoverWorkspace').then((m) => ({ default: m.DiscoverWorkspace }))
 );
 
-// ─── Error Boundary ──────────────────────────────────────────
 interface EBProps { children: ReactNode; }
 interface EBState { hasError: boolean; error: Error | null; }
 
@@ -30,9 +29,14 @@ class ErrorBoundary extends Component<EBProps, EBState> {
   }
   handleReset = () => {
     this.setState({ hasError: false, error: null });
-    try {
-      useCanvasStore.getState().loadWorld(null);
-    } catch { /* silencioso */ }
+    // Espera un tick: el canvas se remonta y el ResizeObserver reporta tamaño real.
+    setTimeout(() => {
+      try {
+        const st = useCanvasStore.getState();
+        st.loadWorld(null);
+        st.fitView();
+      } catch { /* silencioso */ }
+    }, 80);
   };
   render() {
     if (this.state.hasError) {
@@ -57,23 +61,18 @@ class ErrorBoundary extends Component<EBProps, EBState> {
               {this.state.error.message}
             </pre>
           )}
-          <button
-            onClick={this.handleReset}
+          <button onClick={this.handleReset}
             style={{
               padding: '10px 24px', borderRadius: 8, border: '1px solid #38bdf8',
-              background: '#38bdf8', color: '#0d1117', fontWeight: 700, fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
+              background: '#38bdf8', color: '#0d1117', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+            }}>
             🔄 Reiniciar tutor
           </button>
-          <button
-            onClick={() => window.location.reload()}
+          <button onClick={() => window.location.reload()}
             style={{
               padding: '8px 20px', borderRadius: 8, border: '1px solid #2b3648',
               background: 'transparent', color: '#8b949e', fontSize: 13, cursor: 'pointer',
-            }}
-          >
+            }}>
             Recargar página
           </button>
         </div>
@@ -83,7 +82,6 @@ class ErrorBoundary extends Component<EBProps, EBState> {
   }
 }
 
-// ─── App interior ────────────────────────────────────────────
 function AppInner() {
   useTeachableMoments();
   useEffect(() => { startChallengeWatcher(); }, []);
@@ -138,12 +136,12 @@ function AppInner() {
                   onClick={() => setChain(!chain)} title="Modo triángulo rectángulo">⛓️ {chain ? 'ENCENDIDO' : 'APAGADO'}</button>
                 <label htmlFor="slider-theta" style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: chain ? 1 : 0.4 }}>
                   θ
-                  <input id="slider-theta" type="range" min={1} max={89} value={Math.round(m.angleDeg)} disabled={playing || !chain} onChange={(e) => setAngleDeg(+e.target.value)} />
+                  <input id="slider-theta" name="slider-theta" type="range" min={1} max={89} value={Math.round(m.angleDeg)} disabled={playing || !chain} onChange={(e) => setAngleDeg(+e.target.value)} />
                   {m.angleDeg.toFixed(0)}°
                 </label>
                 <label htmlFor="slider-base" style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: chain ? 1 : 0.4 }}>
                   base
-                  <input id="slider-base" type="range" min={5} max={120} value={Math.round(m.base)} disabled={playing || !chain} onChange={(e) => setBase(+e.target.value)} />
+                  <input id="slider-base" name="slider-base" type="range" min={5} max={120} value={Math.round(m.base)} disabled={playing || !chain} onChange={(e) => setBase(+e.target.value)} />
                   {m.base.toFixed(0)}
                 </label>
                 <span style={{ marginLeft: 'auto', color: pal.dim }}>
@@ -178,7 +176,6 @@ function AppInner() {
   );
 }
 
-// ─── Export con Error Boundary envolviendo todo ──────────────
 export default function App() {
   return (
     <ErrorBoundary>

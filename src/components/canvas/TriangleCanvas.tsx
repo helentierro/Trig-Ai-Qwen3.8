@@ -1,8 +1,9 @@
-// src/components/canvas/TriangleCanvas.tsx
+// src/components/canvas/TriangleCanvas.tsx — Entrega 3: selectores + botón cancelar
 import { useEffect, useRef } from 'react';
 import { useCanvasStore, initDefaultWorld } from '../../stores/canvasStore';
 import { useThemeStore, usePal } from '../../stores/themeStore';
 import { worldToScreen } from '../../utils/coordinateTransform';
+import { cancelScene } from '../../services/scenePlayer';
 import { InteractionLayer } from './InteractionLayer';
 import { ToolPalette } from './ToolPalette';
 import { ContextMenu } from './ContextMenu';
@@ -12,11 +13,29 @@ const fmt = (n: number) => `${Number(n.toFixed(2))}`;
 
 export function TriangleCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const s = useCanvasStore();
+  // Entrega 3: selectores individuales → solo re-renderiza lo que cambió
+  const cam = useCanvasStore((s) => s.camera);
+  const viewport = useCanvasStore((s) => s.viewport);
+  const points = useCanvasStore((s) => s.points);
+  const segments = useCanvasStore((s) => s.segments);
+  const circles = useCanvasStore((s) => s.circles);
+  const measures = useCanvasStore((s) => s.measures);
+  const hoverId = useCanvasStore((s) => s.hoverId);
+  const dragId = useCanvasStore((s) => s.dragId);
+  const snapBadge = useCanvasStore((s) => s.snapBadge);
+  const selectedId = useCanvasStore((s) => s.selectedId);
+  const pulseId = useCanvasStore((s) => s.pulseId);
+  const drawn = useCanvasStore((s) => s.drawn);
+  const aiCursor = useCanvasStore((s) => s.aiCursor);
+  const subtitle = useCanvasStore((s) => s.subtitle);
+  const hasTriangle = useCanvasStore((s) => s.hasTriangle);
+  const pending = useCanvasStore((s) => s.pending);
+  const cursorWorld = useCanvasStore((s) => s.cursorWorld);
+  const tool = useCanvasStore((s) => s.tool);
+  const gridStyle = useCanvasStore((s) => s.gridStyle);
+  const playing = useCanvasStore((s) => s.playing);
   const resolved = useThemeStore((t) => t.resolved);
   const C = usePal();
-  const { camera: cam, viewport, points, segments, circles, measures, hoverId, dragId, snapBadge,
-    selectedId, pulseId, drawn, aiCursor, subtitle, hasTriangle, pending, cursorWorld, tool, gridStyle } = s;
 
   useEffect(() => {
     initDefaultWorld();
@@ -33,7 +52,6 @@ export function TriangleCanvas() {
   }, []);
 
   const ink = (color: string) => (resolved === 'light' && color === '#e2e8f0' ? '#334155' : color);
-
   const SP: Record<string, { x: number; y: number }> = {};
   Object.values(points).forEach((p) => { if (p.id) SP[p.id] = worldToScreen(p.pos, cam); });
   const tri = hasTriangle && !!SP.O && !!SP.B && !!SP.A;
@@ -112,7 +130,6 @@ export function TriangleCanvas() {
             const sp = SP[p.id];
             const pop = drawn[p.id] ?? 1;
             const active = hoverId === p.id || dragId === p.id;
-            // F3: B baja un poco más para no pisar los números del eje
             const off = { O: { x: -18, y: 18 }, B: { x: 10, y: 24 }, A: { x: -5, y: -12 } }[p.id as 'O' | 'B' | 'A'] ?? { x: 8, y: -12 };
             return (
               <g key={p.id}>
@@ -139,6 +156,16 @@ export function TriangleCanvas() {
       </InteractionLayer>
       <ToolPalette />
       <ContextMenu />
+      {playing && (
+        <button onClick={cancelScene}
+          style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 6, padding: '8px 16px', borderRadius: 10,
+            border: `1px solid ${C.border}`, background: C.card, color: '#f87171',
+            fontWeight: 800, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+          }}>
+          ⏹ Cancelar
+        </button>
+      )}
       {subtitle && (
         <div key={subtitle} className="subtitle" style={{
           position: 'absolute', bottom: 34, left: '50%', transform: 'translateX(-50%)',
