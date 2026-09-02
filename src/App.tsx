@@ -1,5 +1,5 @@
-// src/App.tsx — Fase H: carga rápida (React.lazy + Suspense para el workspace Descubrir)
-import { Suspense, lazy, useEffect, useState } from 'react';
+// src/App.tsx — Fase I (Día 1): Error Boundary + estabilidad
+import { Component, Suspense, lazy, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { TriangleCanvas } from './components/canvas/TriangleCanvas';
 import { SidePanel } from './components/panel/SidePanel';
 import { ChatPanel } from './components/chat/ChatPanel';
@@ -10,16 +10,87 @@ import { useTeachableMoments } from './hooks/useTeachableMoments';
 import { startChallengeWatcher } from './stores/challengeStore';
 
 const DiscoverWorkspace = lazy(() =>
-  import('./components/panel/DiscoverWorkspace').then((m) => ({ default: m.DiscoverWorkspace })));
+  import('./components/panel/DiscoverWorkspace').then((m) => ({ default: m.DiscoverWorkspace }))
+);
 
-export default function App() {
+// ─── Error Boundary ──────────────────────────────────────────
+interface EBProps { children: ReactNode; }
+interface EBState { hasError: boolean; error: Error | null; }
+
+class ErrorBoundary extends Component<EBProps, EBState> {
+  constructor(props: EBProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error): EBState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[ErrorBoundary]', error, info);
+  }
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    try {
+      useCanvasStore.getState().loadWorld(null);
+    } catch { /* silencioso */ }
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 16,
+          background: '#0d1117', color: '#e2e8f0', padding: 24, fontFamily: 'system-ui',
+        }}>
+          <div style={{ fontSize: 48 }}>🛠️</div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Algo salió mal</h1>
+          <p style={{ margin: 0, color: '#8b949e', textAlign: 'center', maxWidth: 420, lineHeight: 1.5 }}>
+            El tutor tuvo un tropiezo. No perdiste tu trabajo guardado.
+            Pulsa "Reiniciar" para volver al triángulo, o recarga la página.
+          </p>
+          {this.state.error && (
+            <pre style={{
+              background: '#111826', border: '1px solid #1f2630', borderRadius: 8,
+              padding: 12, fontSize: 11, color: '#f87171', maxWidth: '90vw',
+              overflow: 'auto', maxHeight: 120,
+            }}>
+              {this.state.error.message}
+            </pre>
+          )}
+          <button
+            onClick={this.handleReset}
+            style={{
+              padding: '10px 24px', borderRadius: 8, border: '1px solid #38bdf8',
+              background: '#38bdf8', color: '#0d1117', fontWeight: 700, fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            🔄 Reiniciar tutor
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '8px 20px', borderRadius: 8, border: '1px solid #2b3648',
+              background: 'transparent', color: '#8b949e', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Recargar página
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─── App interior ────────────────────────────────────────────
+function AppInner() {
   useTeachableMoments();
   useEffect(() => { startChallengeWatcher(); }, []);
   const pal = usePal();
   const mode = useThemeStore((t) => t.mode);
   const cycle = useThemeStore((t) => t.cycle);
   const [ws, setWs] = useState<'graph' | 'discover'>('graph');
-
   const m = useCanvasStore((s) => s.measures);
   const hasTriangle = useCanvasStore((s) => s.hasTriangle);
   const chain = useCanvasStore((s) => s.chain);
@@ -31,12 +102,10 @@ export default function App() {
   const playing = useCanvasStore((s) => s.playing);
   const celebration = useCanvasStore((s) => s.celebration);
   const toast = useCanvasStore((s) => s.toast);
-
   const btn: React.CSSProperties = {
     padding: '6px 12px', borderRadius: 8, border: `1px solid ${pal.border}`,
     background: pal.card, color: pal.bubbleText, cursor: 'pointer', fontSize: 12,
   };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: pal.bg, color: pal.bubbleText }}>
       <header style={{ padding: '10px 16px', borderBottom: `1px solid ${pal.border}`, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -53,7 +122,6 @@ export default function App() {
           </button>
         </span>
       </header>
-
       {ws === 'graph' ? (
         <>
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -85,7 +153,7 @@ export default function App() {
                 </span>
               </>
             ) : (
-              <span style={{ color: pal.dim }}>Mundo libre: construye con 🛠 ·  vuelve al triángulo ·  abre mundos con historia</span>
+              <span style={{ color: pal.dim }}>Mundo libre: construye con 🛠 · vuelve al triángulo · abre mundos con historia</span>
             )}
           </footer>
         </>
@@ -94,7 +162,6 @@ export default function App() {
           <DiscoverWorkspace onEnterWorld={() => setWs('graph')} />
         </Suspense>
       )}
-
       {toast && (
         <div style={{ position: 'fixed', bottom: 60, right: 20, background: pal.card, border: `1px solid ${pal.border}`, color: pal.bubbleText, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, zIndex: 70, pointerEvents: 'none' }}>
           {toast}
@@ -108,5 +175,14 @@ export default function App() {
         }}>{celebration}</div>
       )}
     </div>
+  );
+}
+
+// ─── Export con Error Boundary envolviendo todo ──────────────
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }
