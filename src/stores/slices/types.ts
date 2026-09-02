@@ -1,4 +1,5 @@
-// src/stores/slices/types.ts — contrato único del store (tipos + evento bus)
+// src/stores/slices/types.ts — contrato único del store (Entrega 2: partido por slice)
+// Cada slice tiene su interfaz; CanvasState = la suma. Cero cambio en runtime.
 import type { Camera, Vec2 } from '../../utils/coordinateTransform';
 import { rad } from '../../utils/geometry';
 
@@ -16,7 +17,6 @@ export interface Measures {
 }
 export type Tool = 'move' | 'point' | 'segment' | 'circle';
 export type GridStyle = 'fine' | 'large' | 'circular' | 'diamond' | 'blank';
-
 export interface Snapshot { points: Record<string, PointNode>; segments: SegmentNode[]; circles: CircleNode[]; }
 export interface SaveSlot { at: number; world: Snapshot; }
 
@@ -40,7 +40,6 @@ export const allDrawn = (w: Snapshot): Record<string, number> => {
   w.circles.forEach((c) => (d[c.id] = 1));
   return d;
 };
-// FIX TS2783: spread primero, defaults con ?? después (el orden anterior siempre era pisado)
 export const normPts = (pts: Record<string, PointNode>) =>
   Object.fromEntries(Object.entries(pts).map(([k, p]) => [k, { ...p, locked: p.locked ?? false, showLabel: p.showLabel ?? true }]));
 
@@ -60,62 +59,32 @@ export const DEFAULT_WORLD = {
 export type StoreSet = (p: Partial<CanvasState> | ((s: CanvasState) => Partial<CanvasState>)) => void;
 export type StoreGet = () => CanvasState;
 
-export interface CanvasState {
-  // estado
-  points: Record<string, PointNode>;
-  segments: SegmentNode[];
-  circles: CircleNode[];
+// ─── Cajón CÁMARA: viewport, zoom, pan ───────────────────────
+export interface CameraSliceState {
   camera: Camera;
   viewport: { w: number; h: number };
-  measures: Measures;
-  hasTriangle: boolean;
-  chain: boolean;
-  dragId: string | null;
-  hoverId: string | null;
-  selectedId: string | null;
-  pulseId: string | null;
-  snapBadge: { label: string } | null;
-  lockedAngle: number | null;
-  drawn: Record<string, number>;
-  aiCursor: { pos: Vec2; visible: boolean };
-  subtitle: string | null;
-  transcript: string[];
-  playing: boolean;
-  voiceOn: boolean;
-  tool: Tool;
-  pending: string[];
-  cursorWorld: Vec2 | null;
-  celebration: string | null;
-  gridMagnet: boolean;
-  gridStyle: GridStyle;
-  history: Snapshot[];
-  future: Snapshot[];
-  menu: { id: string; x: number; y: number } | null;
-  viewMenu: { x: number; y: number } | null;
-  toast: string | null;
-  saves: SaveSlot[];
-  // internos de slice (públicos para tests)
-  snapshot: () => void;
-  applyPoints: (pts: Record<string, PointNode>) => void;
-  // acciones
   setViewport: (w: number, h: number) => void;
   fitView: () => void;
   panBy: (dx: number, dy: number) => void;
   zoomAtScreen: (pt: Vec2, zoom: number) => void;
-  setHover: (id: string | null) => void;
-  setSelected: (id: string | null) => void;
+}
+
+// ─── Cajón OBJETOS: scene graph + herramientas ───────────────
+export interface ObjectsSliceState {
+  points: Record<string, PointNode>;
+  segments: SegmentNode[];
+  circles: CircleNode[];
+  measures: Measures;
+  hasTriangle: boolean;
+  drawn: Record<string, number>;
+  tool: Tool;
+  pending: string[];
+  cursorWorld: Vec2 | null;
+  applyPoints: (pts: Record<string, PointNode>) => void;
   toggleVisible: (id: string) => void;
-  pulse: (id: string, ms?: number) => void;
-  beginDrag: (id: string) => void;
-  dragTo: (id: string, world: Vec2) => void;
-  endDrag: () => void;
   setAngleDeg: (d: number) => void;
   setBase: (b: number) => void;
   setDrawn: (id: string, t: number) => void;
-  setAiCursor: (pos: Vec2 | null) => void;
-  setSubtitle: (text: string | null) => void;
-  setPlaying: (b: boolean) => void;
-  setVoiceOn: (b: boolean) => void;
   resetConstruction: () => void;
   setTool: (t: Tool) => void;
   setCursorWorld: (p: Vec2 | null) => void;
@@ -123,23 +92,66 @@ export interface CanvasState {
   addPointAt: (world: Vec2) => void;
   clickPoint: (id: string) => void;
   loadWorld: (id: string | null) => void;
-  celebrate: (text: string) => void;
-  setGridMagnet: (b: boolean) => void;
-  setGridStyle: (s: GridStyle) => void;
-  setChain: (b: boolean) => void;
-  undo: () => void;
-  redo: () => void;
   deleteObject: (id: string) => void;
   duplicateObject: (id: string) => void;
   toggleLock: (id: string) => void;
   toggleLabel: (id: string) => void;
   setPointPos: (id: string, x: number, y: number) => void;
   setSegmentLen: (id: string, len: number) => void;
+}
+
+// ─── Cajón HISTORIAL: undo/redo + guardado ───────────────────
+export interface HistorySliceState {
+  history: Snapshot[];
+  future: Snapshot[];
+  saves: SaveSlot[];
+  snapshot: () => void;
+  undo: () => void;
+  redo: () => void;
   saveWorld: () => void;
   loadSlot: (i: number) => void;
+}
+
+// ─── Cajón UI: interacción, escena IA, menús, toasts ─────────
+export interface UISliceState {
+  chain: boolean;
+  dragId: string | null;
+  hoverId: string | null;
+  selectedId: string | null;
+  pulseId: string | null;
+  snapBadge: { label: string } | null;
+  lockedAngle: number | null;
+  aiCursor: { pos: Vec2; visible: boolean };
+  subtitle: string | null;
+  transcript: string[];
+  playing: boolean;
+  voiceOn: boolean;
+  celebration: string | null;
+  gridMagnet: boolean;
+  gridStyle: GridStyle;
+  menu: { id: string; x: number; y: number } | null;
+  viewMenu: { x: number; y: number } | null;
+  toast: string | null;
   toastMsg: (t: string) => void;
   openMenu: (id: string, x: number, y: number) => void;
   closeMenu: () => void;
   openViewMenu: (x: number, y: number) => void;
   closeViewMenu: () => void;
+  setHover: (id: string | null) => void;
+  setSelected: (id: string | null) => void;
+  pulse: (id: string, ms?: number) => void;
+  celebrate: (text: string) => void;
+  beginDrag: (id: string) => void;
+  dragTo: (id: string, world: Vec2) => void;
+  endDrag: () => void;
+  setAiCursor: (pos: Vec2 | null) => void;
+  setSubtitle: (text: string | null) => void;
+  setPlaying: (b: boolean) => void;
+  setVoiceOn: (b: boolean) => void;
+  setGridMagnet: (b: boolean) => void;
+  setGridStyle: (s: GridStyle) => void;
+  setChain: (b: boolean) => void;
 }
+
+// El contrato público sigue siendo UNO solo: la suma de los 4 cajones.
+export type CanvasState = CameraSliceState & ObjectsSliceState & HistorySliceState & UISliceState;

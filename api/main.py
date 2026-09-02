@@ -1,30 +1,28 @@
-# api/main.py — Backend Trig AI Tutor (Día 1: seguridad)
+# api/main.py — Backend Trig AI Tutor
+# FIX Entrega 1: slowapi NO soporta WebSockets (crash 500 en cada conexión).
+# Se reemplaza por rate-limiting manual por IP (diccionario + ventana de 60 s).
 import os
 import re
 import json
+import time
 import logging
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-
-# Rate limiting
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_ipaddr
-from slowapi.errors import RateLimitExceeded
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trig-ai")
 
-# ─── App + middleware ─────────────────────────────────────────
+# ─── App + CORS configurable ─────────────────────────────────
 app = FastAPI(title="Trig AI Tutor API")
 
-# CORS desde env (no hardcodeado)
 cors_origins = os.getenv("CORS_ORIGINS", "*")
-origins = ["*"] if cors_origins == "*" else [o.strip() for o in cors_origins.split(",")]
+origins = ["*"] if cors_origins == "*" else [o.strip() for o in cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -32,20 +30,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiter (10 req/min por IP por defecto)
-limiter = Limiter(key_func=get_ipaddr)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# ─── Rate limiting manual (compatible con WebSocket) ─────────
+# Protege tu cuota de IA: máx. N mensajes por IP por minuto.
+RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "10"))
+_hits: dict = defaultdict(deque)
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    logger.warning(f"Rate limit excedido desde {get_ipaddr(request)}")
-    return JSONResponse(
-        status_code=429,
-        content={"reply": "Estoy pensando muy rápido, dame un segundo 🙏", "steps": []},
-    )
 
-# ─── Cliente LLM ──────────────────────────────────────────────
+def rate_limited(ip: str) -> bool:
+    """True si la IP ya envió RATE_LIMIT_PER_MINUTE mensajes en los últimos 60 s."""
+    now = time.monotonic()
+    q = _hits[ip]
+    while q and now - q[0] > 60:
+        q.popleft()
+    if len(q) >= RATE_LIMIT_PER_MINUTE:
+        return True
+    q.append(now)
+    return False
+
+
+# ─── Cliente LLM (OpenAI/Groq/Ollama/etc. vía OPENAI_BASE_URL) ─
 client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY", "ollama"),
     base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:11434/v1"),
@@ -95,7 +98,7 @@ def sanitize(step):
 
 
 def parse_llm(raw: str):
-    m = re.search(r"{.*}", raw, re.S)
+    m = re.search(r"\{.*\}", raw, re.S)
     if not m:
         return raw.strip(), []
     try:
@@ -109,24 +112,36 @@ def parse_llm(raw: str):
 
 @app.get("/")
 def health():
-    return {"ok": True, "model": MODEL}
+    return {"ok": True, "model": MODEL, "rate_limit_per_minute": RATE_LIMIT_PER_MINUTE}
 
 
 @app.websocket("/ws/tutor")
-@limiter.limit(f"{os.getenv('RATE_LIMIT_PER_MINUTE', '10')}/minute")
-async def ws_tutor(ws: WebSocket, request: Request):
-    # FIX: get_ipaddr requiere request, lo pasamos vía parámetro
+async def ws_tutor(ws: WebSocket):
     await ws.accept()
-    ip = get_ipaddr(request)
-    logger.info(f"WebSocket conectado desde {ip}")
+    ip = ws.client.host if ws.client else "unknown"
+    logger.info("WebSocket conectado desde %s", ip)
     while True:
         try:
             data = await ws.receive_json()
         except (WebSocketDisconnect, Exception):
-            logger.info(f"WebSocket desconectado: {ip}")
+            logger.info("WebSocket desconectado: %s", ip)
             break
-        if data.get("type") != "chat":
+        if not isinstance(data, dict) or data.get("type") != "chat":
             continue
+
+        # ── Rate limit por MENSAJE (aquí vive el peligro de cuota) ──
+        if rate_limited(ip):
+            logger.warning("Rate limit excedido desde %s", ip)
+            try:
+                await ws.send_json({
+                    "type": "answer",
+                    "reply": f"Estoy pensando muy rápido, dame un segundo 🙏 (límite: {RATE_LIMIT_PER_MINUTE} msg/min)",
+                    "steps": [],
+                })
+            except Exception:
+                break
+            continue
+
         text = str(data.get("text", ""))[:500]
         context = data.get("context", {})
         try:
@@ -134,22 +149,19 @@ async def ws_tutor(ws: WebSocket, request: Request):
                 model=MODEL,
                 temperature=0.7,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": SYSTEM
+                    {"role": "system", "content": SYSTEM
                         .replace("{IDS}", ", ".join(sorted(IDS)))
                         .replace("{WORLDS}", ", ".join(sorted(WORLDS)))
                         .replace("{CHALLENGES}", ", ".join(sorted(CHALLENGES)))
-                        .replace("{context}", json.dumps(context, ensure_ascii=False)),
-                    },
+                        .replace("{context}", json.dumps(context, ensure_ascii=False))},
                     {"role": "user", "content": text},
                 ],
             )
             raw = resp.choices[0].message.content or ""
             reply, steps = parse_llm(raw)
         except Exception as e:
-            # FIX: no filtrar nombre de excepción al cliente
-            logger.error(f"Error en LLM: {e.__class__.__name__}: {e}")
+            # No filtrar detalles internos al cliente; solo al log
+            logger.error("Error en LLM: %s: %s", e.__class__.__name__, e)
             reply = "Ups, mi cerebro externo se tropezó. Pero sigo aquí: pregúntame por la hipotenusa, un puente o un reto."
             steps = []
         try:

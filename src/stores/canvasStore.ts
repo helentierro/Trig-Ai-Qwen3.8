@@ -1,16 +1,18 @@
-// src/stores/canvasStore.ts — composición de 4 slices (Fase H: escalabilidad)
+// src/stores/canvasStore.ts — composición de 4 slices
+// Entrega 2 FINAL: sin casts peligrosos y sin imports muertos (TS6133).
 import { create } from 'zustand';
 import { cameraSlice } from './slices/cameraSlice';
 import { objectsSlice } from './slices/objectsSlice';
 import { historySlice } from './slices/historySlice';
 import { uiSlice } from './slices/uiSlice';
-import { type CanvasState, type StoreGet, type StoreSet, onCanvasEvent } from './slices/types';
+import { type CanvasState, onCanvasEvent } from './slices/types';
 
+// El set/get de zustand YA encaja con StoreSet/StoreGet: no hacen falta casts.
 export const useCanvasStore = create<CanvasState>()((set, get) => ({
-  ...cameraSlice(set as unknown as StoreSet, get as unknown as StoreGet),
-  ...objectsSlice(set as unknown as StoreSet, get as unknown as StoreGet),
-  ...historySlice(set as unknown as StoreSet, get as unknown as StoreGet),
-  ...uiSlice(set as unknown as StoreSet, get as unknown as StoreGet),
+  ...cameraSlice(set, get),
+  ...objectsSlice(set, get),
+  ...historySlice(set, get),
+  ...uiSlice(set, get),
 }));
 
 export function initDefaultWorld() {
