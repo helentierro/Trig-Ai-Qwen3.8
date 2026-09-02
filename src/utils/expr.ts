@@ -1,7 +1,10 @@
-// src/utils/expr.ts — Parser matemático seguro (Día 1: reemplaza new Function)
+// src/utils/expr.ts — parser matemático seguro (v2 FINAL)
 // Sin eval(), sin new Function(). Parser recursivo-descendente puro.
+// Soporta: + - * / % ^ · paréntesis · coma · pi, e · variables
+// Funciones 1 arg: sin cos tan asin acos atan sqrt abs round floor ceil log ln
+// Funciones N args: min max (la Hoja emite Math.min/Math.max y aquí se entienden)
 
-const FUNCS: Record<string, (v: number) => number> = {
+const FUNCS1: Record<string, (v: number) => number> = {
   sin: (d) => Math.sin((d * Math.PI) / 180),
   cos: (d) => Math.cos((d * Math.PI) / 180),
   tan: (d) => Math.tan((d * Math.PI) / 180),
@@ -17,9 +20,13 @@ const FUNCS: Record<string, (v: number) => number> = {
   ln: Math.log,
 };
 
+const FUNCSN: Record<string, (vals: number[]) => number> = {
+  min: (vals) => Math.min(...vals),
+  max: (vals) => Math.max(...vals),
+};
+
 const CONSTS: Record<string, number> = { pi: Math.PI, e: Math.E };
 
-// ─── Tokenizer ─────────────────────────────────────────────────────────────
 type Token =
   | { kind: 'num'; v: number }
   | { kind: 'id'; v: string }
@@ -29,9 +36,14 @@ type Token =
   | { kind: 'comma' };
 
 function tokenize(src: string): Token[] | null {
-  let s = src.toLowerCase().replace(/\s+/g, '').replace(/×/g, '*').replace(/÷/g, '/');
-  // Soporte de ^ como potencia
-  s = s.replace(/\^/g, '**');
+  const s = src
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/math\.min/g, 'min')
+    .replace(/math\.max/g, 'max')
+    .replace(/\^/g, '**');
   if (!s) return null;
   const tokens: Token[] = [];
   let i = 0;
@@ -56,21 +68,21 @@ function tokenize(src: string): Token[] | null {
     } else if (c === '(') { tokens.push({ kind: 'lp' }); i++; }
     else if (c === ')') { tokens.push({ kind: 'rp' }); i++; }
     else if (c === ',') { tokens.push({ kind: 'comma' }); i++; }
-    else if ('+-*/%'.includes(c)) { tokens.push({ kind: 'op', v: c }); i++; }
     else if (c === '*' && s[i + 1] === '*') { tokens.push({ kind: 'op', v: '**' }); i += 2; }
-    else return null; // carácter inválido
+    else if ('+-*/%'.includes(c)) { tokens.push({ kind: 'op', v: c }); i++; }
+    else return null; // carácter desconocido → rechazo seguro
   }
   return tokens;
 }
 
-// ─── Parser (precedencia correcta) ────────────────────────────────────────
 class Parser {
   private pos = 0;
-  constructor(
-    private tokens: Token[],
-    private vars: Record<string, number>,
-  ) {}
-
+  private tokens: Token[];
+  private vars: Record<string, number>;
+  constructor(tokens: Token[], vars: Record<string, number>) {
+    this.tokens = tokens;
+    this.vars = vars;
+  }
   private peek(): Token | undefined { return this.tokens[this.pos]; }
   private consume(): Token { return this.tokens[this.pos++]; }
 
@@ -87,9 +99,9 @@ class Parser {
   // expr = term (('+' | '-') term)*
   private expr(): number {
     let left = this.term();
-    while (true) {
+    for (;;) {
       const t = this.peek();
-      if (t?.kind === 'op' && (t.v === '+' || t.v === '-')) {
+      if (t && t.kind === 'op' && (t.v === '+' || t.v === '-')) {
         this.consume();
         const right = this.term();
         left = t.v === '+' ? left + right : left - right;
@@ -101,14 +113,14 @@ class Parser {
   // term = power (('*' | '/' | '%') power)*
   private term(): number {
     let left = this.power();
-    while (true) {
+    for (;;) {
       const t = this.peek();
-      if (t?.kind === 'op' && (t.v === '*' || t.v === '/' || t.v === '%')) {
+      if (t && t.kind === 'op' && (t.v === '*' || t.v === '/' || t.v === '%')) {
         this.consume();
         const right = this.power();
         if (t.v === '*') left = left * right;
         else if (t.v === '/') {
-          if (right === 0) throw new Error('div0');
+          if (right === 0) throw new Error('div0'); // división por cero → null seguro
           left = left / right;
         } else left = left % right;
       } else break;
@@ -116,14 +128,13 @@ class Parser {
     return left;
   }
 
-  // power = unary ('**' unary)*  (right-associative)
+  // power = unary ('**' unary)*  (asociativo a la derecha)
   private power(): number {
     const base = this.unary();
     const t = this.peek();
-    if (t?.kind === 'op' && t.v === '**') {
+    if (t && t.kind === 'op' && t.v === '**') {
       this.consume();
-      const exp = this.power();
-      return Math.pow(base, exp);
+      return Math.pow(base, this.power());
     }
     return base;
   }
@@ -131,7 +142,7 @@ class Parser {
   // unary = ('+' | '-')? atom
   private unary(): number {
     const t = this.peek();
-    if (t?.kind === 'op' && (t.v === '+' || t.v === '-')) {
+    if (t && t.kind === 'op' && (t.v === '+' || t.v === '-')) {
       this.consume();
       const v = this.unary();
       return t.v === '-' ? -v : v;
@@ -139,7 +150,7 @@ class Parser {
     return this.atom();
   }
 
-  // atom = num | const | var | id '(' args ')' | '(' expr ')'
+  // atom = num | const | var | id(args) | '(' expr ')'
   private atom(): number {
     const t = this.consume();
     if (!t) throw new Error('unexpected end');
@@ -152,27 +163,31 @@ class Parser {
     }
     if (t.kind === 'id') {
       const next = this.peek();
-      // Función: id '(' args ')'
-      if (next?.kind === 'lp') {
-        const fn = FUNCS[t.v];
-        if (!fn) throw new Error('unknown fn: ' + t.v);
-        this.consume(); // (
+      if (next && next.kind === 'lp') {
+        this.consume(); // '('
         const args: number[] = [];
-        if (this.peek()?.kind !== 'rp') {
+        if (this.peek() && this.peek()!.kind !== 'rp') {
           args.push(this.expr());
-          while (this.peek()?.kind === 'comma') {
+          while (this.peek() && this.peek()!.kind === 'comma') {
             this.consume();
             args.push(this.expr());
           }
         }
         const rp = this.consume();
         if (!rp || rp.kind !== 'rp') throw new Error('missing )');
-        if (args.length !== 1) throw new Error('arity');
-        return fn(args[0]);
+        const f1 = FUNCS1[t.v];
+        if (f1) {
+          if (args.length !== 1) throw new Error('arity');
+          return f1(args[0]);
+        }
+        const fn = FUNCSN[t.v];
+        if (fn) {
+          if (args.length < 1) throw new Error('arity');
+          return fn(args);
+        }
+        throw new Error('unknown fn: ' + t.v);
       }
-      // Constante
       if (t.v in CONSTS) return CONSTS[t.v];
-      // Variable
       if (t.v in this.vars) return this.vars[t.v];
       throw new Error('unknown id: ' + t.v);
     }
