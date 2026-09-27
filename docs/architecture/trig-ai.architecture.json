@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Trig AI Tutor — Arquitectura runtime",
+    "output": "trig-ai.html",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/helentierro/Trig-Ai-Qwen3.8.git",
+      "revision": "4bd7186e901d28d139455d84164adad65de30c33"
+    },
+    "views": [
+      { "id": "ruta-primaria", "label": "Ruta primaria", "focus": ["usuario", "chat", "orquestador", "api", "llm", "escenas", "lienzo"], "note": "Del mensaje del alumno al lienzo: WS, LLM y escenas." },
+      { "id": "fallback-local", "label": "Sin conexión", "focus": ["orquestador", "tutorlocal", "escenas"], "note": "Si el WS falla, el tutor local responde sin LLM." },
+      { "id": "hoja-calculo", "label": "Hoja y cálculo", "focus": ["hoja", "lienzo"], "note": "Fórmulas evaluadas con parser seguro." }
+    ]
+  },
+  "components": [
+    { "id": "usuario", "type": "external", "label": "Alumno", "sublabel": "Navegador", "pos": [40, 300], "size": [120, 60], "sources": [{ "path": "src/components/chat/ChatPanel.tsx", "line": 59 }] },
+    { "id": "chat", "type": "frontend", "label": "Panel de chat", "sublabel": "React input", "pos": [230, 300], "size": [130, 60], "sources": [{ "path": "src/components/chat/ChatPanel.tsx", "line": 18 }] },
+    { "id": "orquestador", "type": "frontend", "label": "Orquestador IA", "sublabel": "WS + fallback", "pos": [430, 300], "size": [130, 60], "sources": [{ "path": "src/services/aiService.ts", "line": 48 }] },
+    { "id": "api", "type": "backend", "label": "API tutora", "sublabel": "FastAPI :8000", "pos": [640, 300], "size": [130, 60], "sources": [{ "path": "api/main.py", "line": 118 }] },
+    { "id": "llm", "type": "external", "label": "Modelo de lenguaje", "sublabel": "Qwen vía base URL", "pos": [860, 300], "size": [130, 60], "sources": [{ "path": "api/main.py", "line": 52 }] },
+    { "id": "saneado", "type": "security", "label": "Límite y saneado", "sublabel": "10/min + allowlist", "pos": [640, 140], "size": [130, 60], "tag": "deg 1-89 · ≤4 steps", "sources": [{ "path": "api/main.py", "line": 78 }] },
+    { "id": "escenas", "type": "frontend", "label": "Motor de escenas", "sublabel": "Guion + voz", "pos": [860, 140], "size": [130, 60], "sources": [{ "path": "src/services/scenePlayer.ts", "line": 79 }] },
+    { "id": "tutorlocal", "type": "frontend", "label": "Tutor local", "sublabel": "Sin red", "pos": [430, 140], "size": [130, 60], "sources": [{ "path": "src/services/localTutor.ts", "line": 10 }] },
+    { "id": "hosting", "type": "cloud", "label": "Hosting", "sublabel": "Firebase dist", "pos": [230, 140], "size": [130, 60], "sources": [{ "path": "firebase.json", "line": 2 }] },
+    { "id": "lienzo", "type": "frontend", "label": "Lienzo y estado", "sublabel": "Canvas + stores", "pos": [640, 460], "size": [130, 60], "sources": [{ "path": "src/components/canvas/TriangleCanvas.tsx", "line": 14 }] },
+    { "id": "hoja", "type": "frontend", "label": "Hoja y cálculo", "sublabel": "Parser sin eval", "pos": [430, 460], "size": [130, 60], "sources": [{ "path": "src/utils/expr.ts", "line": 198 }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Navegador (no confiable)", "wraps": ["chat", "orquestador", "tutorlocal", "escenas", "lienzo", "hoja"] },
+    { "kind": "security-group", "label": "API: enforcement", "wraps": ["api", "saneado"] }
+  ],
+  "connections": [
+    { "id": "usuario-chat", "from": "usuario", "to": "chat", "label": "escribe" },
+    { "id": "chat-orquestador", "from": "chat", "to": "orquestador", "label": "askTutor" },
+    { "id": "orquestador-api", "from": "orquestador", "to": "api", "label": "WS /ws/tutor", "variant": "emphasis", "labelDy": -46 },
+    { "id": "api-llm", "from": "api", "to": "llm", "label": "prompt JSON", "labelDy": -22 },
+    { "id": "llm-api", "from": "llm", "to": "api", "label": "reply + steps", "fromSide": "bottom", "toSide": "bottom", "via": [[925, 390], [705, 390]] },
+    { "id": "api-orquestador", "from": "api", "to": "orquestador", "label": "answer", "fromSide": "top", "toSide": "top", "via": [[705, 240], [495, 240]], "labelDx": -45 },
+    { "id": "orquestador-escenas", "from": "orquestador", "to": "escenas", "label": "guion", "fromSide": "top", "toSide": "bottom", "labelDx": 45, "labelDy": 30 },
+    { "id": "escenas-lienzo", "from": "escenas", "to": "lienzo", "label": "pulso + voz", "fromSide": "right", "toSide": "right", "via": [[1050, 170], [1050, 490]] },
+    { "id": "fallback-local", "from": "orquestador", "to": "tutorlocal", "label": "sin red", "variant": "dashed", "labelDx": -40 },
+    { "id": "local-escenas", "from": "tutorlocal", "to": "escenas", "label": "guion local", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[495, 80], [925, 80]] },
+    { "id": "hoja-lienzo", "from": "hoja", "to": "lienzo", "label": "evalExpr" },
+    { "id": "hosting-chat", "from": "hosting", "to": "chat", "label": "sirve SPA", "variant": "dashed", "labelDy": 24 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Ruta primaria", "items": ["Alumno → chat → WS /ws/tutor → LLM → answer", "Orquestador aplica pasos y lanza el guion en el lienzo"] },
+    { "dot": "rose", "title": "Seguridad", "items": ["Límite 10 msg/min por IP y texto truncado a 500", "Saneado allowlist: 4 pasos, grados 1–89, sin eval"] },
+    { "dot": "emerald", "title": "Externos", "items": ["Vite :5173, API :8000, Ollama :11434, Firebase dist", "Sandbox :8080 con node:20-slim solo para laboratorio"] }
+  ]
+}

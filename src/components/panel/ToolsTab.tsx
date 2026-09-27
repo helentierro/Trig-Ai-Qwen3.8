@@ -45,33 +45,102 @@ export function ToolsTab() {
   const cycle = useThemeStore((t) => t.cycle);
 
   const H = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ color: pal.faint, fontSize: 10, letterSpacing: 1.5, padding: '10px 10px 4px', textTransform: 'uppercase' }}>{children}</div>
+    <div style={{ color: pal.faint, fontSize: 10, letterSpacing: 1.5, padding: '12px 10px 6px', textTransform: 'uppercase', fontWeight: 700 }}>{children}</div>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <H>Herramientas de dibujo</H>
-      {TOOLS.map((t) => <Item key={t.id} icon={t.icon} name={t.name} desc={t.desc} active={tool === t.id} onClick={() => st().setTool(t.id)} />)}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 8px 8px' }}>
+      <H>Herramientas</H>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+        {TOOLS.map((t) => (
+          <button key={t.id} onClick={() => st().setTool(t.id)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 70,
+            borderRadius: 12, border: tool === t.id ? `1px solid ${pal.accent}` : `1px solid ${pal.border}`,
+            background: tool === t.id ? 'rgba(56,189,248,0.10)' : pal.card, color: pal.bubbleText, cursor: 'pointer',
+            boxShadow: tool === t.id ? `0 0 0 1px ${pal.accent}30 inset` : 'none', padding: '10px 8px',
+          }} title={t.name}>
+            <span style={{ fontSize: 23, lineHeight: 1 }}>{t.icon}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textAlign: 'center' }}>{t.name}</span>
+          </button>
+        ))}
+      </div>
+
       <H>Modo</H>
-      <Item icon="⛓️" name="Cadena rectangular" desc="O→B horizontal, B→A vertical, imán ⚡" active={chain} onClick={() => st().setChain(!chain)} />
-      <Item icon="🧲" name="Imán a la grilla" desc="Ajusta arrastres y puntos nuevos a la grilla" active={gridMagnet} onClick={() => st().setGridMagnet(!gridMagnet)} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Item icon="⛓️" name="Cadena rectangular" desc="O→B horizontal, B→A vertical, imán ⚡" active={chain} onClick={() => st().setChain(!chain)} />
+        <Item icon="🧲" name="Imán a la grilla" desc="Ajusta arrastres y puntos nuevos" active={gridMagnet} onClick={() => st().setGridMagnet(!gridMagnet)} />
+      </div>
+
+      <H>Ángulos rápidos</H>
+      <div style={{ display: 'flex', gap: 6, padding: '2px 6px 0', flexWrap: 'wrap' }}>
+        {[30, 45, 60].map((angle) => (
+          <button key={angle} onClick={() => { st().setAngleDeg(angle); st().toastMsg(`⚡ Ajustado a ${angle}°`); }} style={{
+            padding: '7px 10px', borderRadius: 9, cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+            border: `1px solid ${pal.border}`,
+            background: pal.card, color: pal.bubbleText,
+          }}>{angle}°</button>
+        ))}
+      </div>
+
+      <H>Construcción</H>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Item icon="⊥" name="Perpendicular" desc="Genera una referencia perpendicular desde A" active={false} onClick={() => {
+          if (st().points.O && st().points.B && st().points.A) {
+            st().buildPerpendicular('O', 'B', 'A', 10);
+            st().toastMsg('⊥ Generada: perpendicular desde A');
+          }
+        }} />
+        <Item icon="∥" name="Paralela" desc="Crea un punto guía paralelo desde A" active={false} onClick={() => {
+          if (st().points.O && st().points.B && st().points.A) {
+            st().buildParallel('O', 'B', 'A', 8);
+            st().toastMsg('∥ Generada: paralelo a O→B');
+          }
+        }} />
+        <Item icon="◉" name="Distancia fija" desc="Punto a 30 unidades desde O" active={false} onClick={() => {
+          if (st().points.O && st().points.B) {
+            st().buildDistancePoint('O', 'B', 30);
+            st().toastMsg('◉ Generado: punto a distancia fija');
+          }
+        }} />
+        <Item icon="◎" name="Círculo" desc="Centro O y radio hasta B" active={false} onClick={() => {
+          if (st().points.O && st().points.B) {
+            st().buildCircle('O', 'B');
+            st().toastMsg('◎ Generado: círculo con radio O-B');
+          }
+        }} />
+        <Item icon="∩" name="Intersección" desc="Puntos donde se cortan círculos" active={false} onClick={() => {
+          if (st().points.O && st().points.B && st().points.A) {
+            st().buildCircle('O', 'B');
+            st().buildCircle('B', 'A');
+            st().buildIntersection('O', 'B', 30, 28.87);
+            st().toastMsg('∩ Generadas: intersecciones de círculos');
+          }
+        }} />
+      </div>
+
       <H>Estilo de vista</H>
-      <div style={{ display: 'flex', gap: 6, padding: '4px 10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, padding: '0 6px' }}>
         {GRIDS.map((g) => (
           <button key={g.id} onClick={() => st().setGridStyle(g.id)} style={{
-            padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11.5,
+            padding: '7px 8px', borderRadius: 9, cursor: 'pointer', fontSize: 11.5, fontWeight: 600,
             border: `1px solid ${gridStyle === g.id ? pal.accent : pal.border}`,
             background: gridStyle === g.id ? 'rgba(56,189,248,.10)' : pal.card, color: pal.bubbleText,
           }}>{g.icon} {g.name}</button>
         ))}
       </div>
-      <Item icon={mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'} name={`Tema: ${mode}`} desc="Cambia claro → sistema → oscuro" onClick={cycle} />
+
+      <div style={{ paddingTop: 8 }}>
+        <Item icon={mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'} name={`Tema: ${mode}`} desc="Cambia claro → sistema → oscuro" onClick={cycle} />
+      </div>
+
       <H>Mundo</H>
-      <Item icon="🎯" name="Ajustar vista" desc="Encuadra toda la figura" onClick={() => st().fitView()} />
-      <Item icon="🧹" name="Volver al triángulo" desc="Limpia lo construido" onClick={() => st().loadWorld(null)} />
-      <Item icon="💾" name="Guardar mundo" desc={`${saves.length}/5 slots usados`} onClick={() => st().saveWorld()} />
-      <Item icon="↩️" name="Deshacer (Ctrl+Z)" desc="Historial de 50 pasos" onClick={() => st().undo()} />
-      <Item icon="↪️" name="Rehacer (Ctrl+Y)" desc="Recupera lo deshecho" onClick={() => st().redo()} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Item icon="🎯" name="Ajustar vista" desc="Encuadra toda la figura" onClick={() => st().fitView()} />
+        <Item icon="🧹" name="Volver al triángulo" desc="Limpia lo construido" onClick={() => st().loadWorld(null)} />
+        <Item icon="💾" name="Guardar mundo" desc={`${saves.length}/5 slots usados`} onClick={() => st().saveWorld()} />
+        <Item icon="↩️" name="Deshacer" desc="Ctrl+Z" onClick={() => st().undo()} />
+        <Item icon="↪️" name="Rehacer" desc="Ctrl+Y" onClick={() => st().redo()} />
+      </div>
     </div>
   );
 }

@@ -12,6 +12,49 @@ describe('calculadora (expr)', () => {
   it('rechaza identidades desconocidas', () => {
     expect(evalExpr('hack(1)')).toBeNull();
   });
+  // Paso 3 (PROBE_RESULT=OK 50/50 en sandbox node:20-slim): blindaje validado de forma aislada.
+  it('división por cero y dominios inválidos → null seguro', () => {
+    expect(evalExpr('1/0')).toBeNull();
+    expect(evalExpr('0/0')).toBeNull();
+    expect(evalExpr('5%0')).toBeNull();
+    expect(evalExpr('sqrt(-1)')).toBeNull();
+    expect(evalExpr('log(0)')).toBeNull();
+    expect(evalExpr('log(-5)')).toBeNull();
+    expect(evalExpr('10^400')).toBeNull();
+  });
+  it('texto inválido y sintaxis rota → null', () => {
+    expect(evalExpr('')).toBeNull();
+    expect(evalExpr('   ')).toBeNull();
+    expect(evalExpr('2+')).toBeNull();
+    expect(evalExpr('(2+3')).toBeNull();
+    expect(evalExpr('2..3')).toBeNull();
+    expect(evalExpr('hola')).toBeNull();
+    expect(evalExpr('sin()')).toBeNull();
+    expect(evalExpr('sin(1,2)')).toBeNull();
+    expect(evalExpr('min()')).toBeNull();
+  });
+  it('expresiones maliciosas no se ejecutan → null', () => {
+    for (const evil of [
+      'process.exit(1)',
+      "require('fs')",
+      'globalThis',
+      'constructor',
+      '__proto__',
+      '__proto__+1',
+      "eval('2+2')",
+      'console.log(1)',
+      '1;2',
+      'a=1',
+      "fetch('http://x')",
+      'while(true){}',
+      '2+2; rm -rf /',
+      '${7*7}',
+      '`test`',
+    ]) {
+      expect(evalExpr(evil)).toBeNull();
+    }
+    expect((globalThis as Record<string, unknown>).pwned).toBeUndefined();
+  });
 });
 
 describe('mini-excel', () => {

@@ -84,7 +84,13 @@ class ErrorBoundary extends Component<EBProps, EBState> {
 
 function AppInner() {
   useTeachableMoments();
-  useEffect(() => { startChallengeWatcher(); }, []);
+  useEffect(() => {
+    const st = useCanvasStore.getState();
+    if (!Object.keys(st.points).length) {
+      st.loadWorld(null);
+    }
+    startChallengeWatcher();
+  }, []);
   const pal = usePal();
   const mode = useThemeStore((t) => t.mode);
   const cycle = useThemeStore((t) => t.cycle);
@@ -144,6 +150,13 @@ function AppInner() {
                   <input id="slider-base" name="slider-base" type="range" min={5} max={120} value={Math.round(m.base)} disabled={playing || !chain} onChange={(e) => setBase(+e.target.value)} />
                   {m.base.toFixed(0)}
                 </label>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {[30, 45, 60].map((angle) => (
+                    <button key={angle} disabled={playing || !chain} onClick={() => setAngleDeg(angle)} style={{ ...btn, padding: '4px 8px', opacity: playing || !chain ? 0.45 : 1 }}>
+                      {angle}°
+                    </button>
+                  ))}
+                </span>
                 <span style={{ marginLeft: 'auto', color: pal.dim }}>
                   {(chain || m.rightAngle)
                     ? `tan(${m.angleDeg.toFixed(0)}°) = ${m.height.toFixed(2)} / ${m.base.toFixed(2)}`

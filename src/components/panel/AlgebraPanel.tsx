@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from 'react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { usePal } from '../../stores/themeStore';
+import { trigSummary } from '../../utils/geometry';
 import { SectionTitle } from '../ui/primitives';
 
 const fmt = (n: number) => `${Number(n.toFixed(2))}`;
@@ -55,14 +56,15 @@ function Row({ id, swatch, title, value, onCommit, canHide }: {
       onMouseLeave={() => setHover(null)}
       onClick={() => setSelected(selectedId === id ? null : id)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
-        background: active ? 'rgba(56,189,248,0.12)' : 'transparent',
-        outline: selectedId === id ? '1px solid rgba(56,189,248,0.5)' : 'none',
-        fontFamily: 'monospace', fontSize: 12.5, color: pal.bubbleText, opacity: visible ? 1 : 0.4,
+        display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, cursor: 'pointer',
+        background: active ? 'rgba(56,189,248,0.10)' : 'transparent',
+        border: active ? `1px solid ${pal.accent}` : '1px solid transparent',
+        fontFamily: 'monospace', fontSize: 12.5, color: pal.bubbleText, opacity: visible ? 1 : 0.42,
+        transition: 'all 0.2s ease',
       }}
     >
-      {swatch}
-      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 18 }}>{swatch}</div>
+      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {title}
         {value !== undefined && (onCommit
           ? <EditValue id={id} value={value} onCommit={onCommit} />
@@ -71,7 +73,7 @@ function Row({ id, swatch, title, value, onCommit, canHide }: {
       {canHide && (
         <button
           onClick={(e) => { e.stopPropagation(); useCanvasStore.getState().toggleVisible(id); }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: visible ? 0.9 : 0.35, fontSize: 13, padding: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: visible ? 0.85 : 0.35, fontSize: 12.5, padding: 0, color: pal.dim }}
           title={visible ? 'Ocultar' : 'Mostrar'}
         >👁</button>
       )}
@@ -89,60 +91,82 @@ export function AlgebraBody() {
   const chain = useCanvasStore((s) => s.chain);
   const pulse = useCanvasStore((s) => s.pulse);
   const st = () => useCanvasStore.getState();
+  const trig = trigSummary(m);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <div style={{ padding: '0 10px 6px', color: pal.faint, fontSize: 10.5 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 8px 0' }}>
+      <div style={{ padding: '2px 8px 8px', color: pal.faint, fontSize: 10.5, lineHeight: 1.5 }}>
         Todo valor con ✎ es editable: escribes y la figura se mueve. Todo se actualiza EN VIVO.
       </div>
+
       <SectionTitle>Puntos</SectionTitle>
-      {Object.values(points).map((p) => (
-        <Row key={p.id} id={p.id} canHide
-          swatch={<span style={{ width: 9, height: 9, borderRadius: '50%', background: pal.panelBg, border: `2px solid ${pal.point}`, flexShrink: 0 }} />}
-          title={p.id}
-          value={`(${fmt(p.pos.x)}, ${fmt(p.pos.y)})`}
-          onCommit={(v) => { const n = nums(v); if (n.length >= 2) st().setPointPos(p.id, n[0], n[1]); }} />
-      ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {Object.values(points).map((p) => (
+          <Row key={p.id} id={p.id} canHide
+            swatch={<span style={{ width: 10, height: 10, borderRadius: '50%', background: pal.panelBg, border: `2px solid ${pal.point}`, boxShadow: `0 0 0 2px ${pal.accent}20`, flexShrink: 0 }} />}
+            title={p.id}
+            value={`(${fmt(p.pos.x)}, ${fmt(p.pos.y)})`}
+            onCommit={(v) => { const n = nums(v); if (n.length >= 2) st().setPointPos(p.id, n[0], n[1]); }} />
+        ))}
+      </div>
+
       <SectionTitle>Segmentos</SectionTitle>
-      {segments.map((g) => {
-        const pa = points[g.a]?.pos, pb = points[g.b]?.pos;
-        const len = pa && pb ? Math.hypot(pb.x - pa.x, pb.y - pa.y) : 0;
-        return (
-          <Row key={g.id} id={g.id} canHide
-            swatch={<span style={{ width: 14, height: 3, background: g.color, borderRadius: 2, flexShrink: 0 }} />}
-            title={`${displayName(g.id)} = Seg(${g.a}, ${g.b})`}
-            value={fmt(len)}
-            onCommit={(v) => { const n = nums(v); if (n.length) st().setSegmentLen(g.id, n[0]); }} />
-        );
-      })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {segments.map((g) => {
+          const pa = points[g.a]?.pos, pb = points[g.b]?.pos;
+          const len = pa && pb ? Math.hypot(pb.x - pa.x, pb.y - pa.y) : 0;
+          return (
+            <Row key={g.id} id={g.id} canHide
+              swatch={<span style={{ width: 18, height: 3, background: g.color, borderRadius: 999, flexShrink: 0 }} />}
+              title={`${displayName(g.id)} = Seg(${g.a}, ${g.b})`}
+              value={fmt(len)}
+              onCommit={(v) => { const n = nums(v); if (n.length) st().setSegmentLen(g.id, n[0]); }} />
+          );
+        })}
+      </div>
+
       {circles.length > 0 && (
         <>
           <SectionTitle>Círculos</SectionTitle>
-          {circles.map((c) => (
-            <Row key={c.id} id={c.id} canHide
-              swatch={<span style={{ width: 11, height: 11, borderRadius: '50%', border: `2px solid ${pal.free}`, flexShrink: 0 }} />}
-              title={`${c.id} = Círc(${c.c})`} value={`r ${fmt(c.r)}`} />
-          ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {circles.map((c) => (
+              <Row key={c.id} id={c.id} canHide
+                swatch={<span style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${pal.free}`, display: 'inline-block', flexShrink: 0 }} />}
+                title={`${c.id} = Círc(${c.c})`} value={`r ${fmt(c.r)}`} />
+            ))}
+          </div>
         </>
       )}
+
       {hasTriangle ? (
         <>
           <SectionTitle>Medidas</SectionTitle>
-          <Row id="angleO" swatch={<span style={{ color: pal.angle }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
-            onCommit={chain ? (v) => { const n = nums(v); if (n.length) st().setAngleDeg(n[0]); } : undefined} />
-          <Row id="angleB" swatch={<span style={{ color: pal.angle }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
-          <Row id="angleA" swatch={<span style={{ color: pal.angle }}>∠</span>} title="α (en A)" value={`${fmt(m.angleA)}°`} />
-          <Row id="area" swatch={<span style={{ color: pal.accent }}>▦</span>} title="área" value={fmt(m.area)} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Row id="angleO" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
+              onCommit={chain ? (v) => { const n = nums(v); if (n.length) st().setAngleDeg(n[0]); } : undefined} />
+            <Row id="angleB" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
+            <Row id="angleA" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="α (en A)" value={`${fmt(m.angleA)}°`} />
+            <Row id="area" swatch={<span style={{ color: pal.accent, fontSize: 16 }}>▦</span>} title="área" value={fmt(m.area)} />
+          </div>
+
+          <div style={{ marginTop: 8, padding: '10px 10px 6px', borderTop: `1px solid ${pal.border}`, display: 'grid', gap: 6 }}>
+            <div style={{ color: pal.faint, fontSize: 11, fontFamily: 'monospace' }}>
+              {fmt(m.angleDeg)}° + {fmt(m.angleB)}° + {fmt(m.angleA)}° = 180° ✔
+            </div>
+            <div style={{ display: 'grid', gap: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace' }}>
+              <div>sin(θ) = op / hip = {fmt(m.height)} / {fmt(m.hyp)} = {trig.sin.toFixed(3)}</div>
+              <div>cos(θ) = ady / hip = {fmt(m.base)} / {fmt(m.hyp)} = {trig.cos.toFixed(3)}</div>
+              <div>tan(θ) = op / ady = {fmt(m.height)} / {fmt(m.base)} = {trig.tan.toFixed(3)}</div>
+            </div>
+          </div>
+
           <button onClick={() => { pulse('hyp', 1400); setTimeout(() => pulse('angleO', 1400), 1500); setTimeout(() => pulse('area', 1400), 3000); }}
-            style={{ margin: '10px 10px 4px', padding: 8, borderRadius: 8, border: `1px solid ${pal.border}`, background: pal.card, color: pal.accent, cursor: 'pointer', fontSize: 12 }}>
+            style={{ margin: '10px 8px 2px', padding: '9px 12px', borderRadius: 10, border: `1px solid ${pal.border}`, background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(167,139,250,0.08))', color: pal.accent, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
             ✨ Simular IA: «mira la figura»
           </button>
-          <div style={{ padding: '8px 10px', color: pal.faint, fontSize: 11, fontFamily: 'monospace', borderTop: `1px solid ${pal.border}`, marginTop: 6 }}>
-            {fmt(m.angleDeg)}° + {fmt(m.angleB)}° + {fmt(m.angleA)}° = 180° ✔
-          </div>
         </>
       ) : (
-        <div style={{ padding: '10px', color: pal.faint, fontSize: 11.5, lineHeight: 1.5 }}>
+        <div style={{ padding: '12px 10px 0', color: pal.faint, fontSize: 11.5, lineHeight: 1.6 }}>
           Este mundo no tiene triángulo O-B-A.<br />Usa 🧹 para volver, o construye con 🛠.
         </div>
       )}
@@ -160,10 +184,10 @@ export function AlgebraPanel() {
     </button>
   );
   return (
-    <aside style={{ width: 272, borderRight: `1px solid ${pal.border}`, background: pal.panelBg, padding: '10px 8px', overflowY: 'auto' }}>
+    <aside style={{ width: 272, borderRight: `1px solid ${pal.border}`, background: pal.panelBg, padding: '10px 8px 0', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 10px 8px' }}>
-        <strong style={{ fontSize: 13, letterSpacing: 1 }}>ÁLGEBRA</strong>
-        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: pal.dim, cursor: 'pointer' }}>⟨</button>
+        <strong style={{ fontSize: 13, letterSpacing: 1, color: pal.bubbleText }}>ÁLGEBRA</strong>
+        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: pal.dim, cursor: 'pointer', fontSize: 16 }}>⟨</button>
       </div>
       <AlgebraBody />
     </aside>

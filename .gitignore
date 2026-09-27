@@ -34,3 +34,7 @@ __pycache__/
 # playwright
 test-results/
 playwright-report/
+
+# tool caches (sesiones locales, no van a la nube)
+.opencode/
+.impeccable/

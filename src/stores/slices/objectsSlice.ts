@@ -1,6 +1,6 @@
 // src/stores/slices/objectsSlice.ts — scene graph: puntos/segmentos/círculos + herramientas
 import { clamp, niceGridStep } from '../../utils/coordinateTransform';
-import { dist, hasTri, measure, rad } from '../../utils/geometry';
+import { circleIntersection, dist, hasTri, measure, parallelPoint, perpendicularPoint, pointAtDistance, pointOnSegment, rad } from '../../utils/geometry';
 import { KNOWLEDGE } from '../../data/knowledge';
 import { allDrawn, DEFAULT_WORLD, type CircleNode, type PointNode, type SegmentNode, type CanvasState, type StoreGet, type StoreSet } from './types';
 
@@ -94,6 +94,115 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
       if (!d) return;
       const np = { x: pa.x + ((pb.x - pa.x) / d) * len, y: pa.y + ((pb.y - pa.y) / d) * len };
       s.applyPoints({ ...s.points, [seg.b]: { ...s.points[seg.b], pos: np } });
+    },
+
+    buildPerpendicular: (baseA: string, baseB: string, through: string, length: number) => {
+      const s = get();
+      const A = s.points[baseA];
+      const B = s.points[baseB];
+      const C = s.points[through];
+      if (!A || !B || !C) return;
+      s.snapshot();
+      const foot = perpendicularPoint(A.pos, B.pos, length);
+      const q = pointOnSegment(A.pos, B.pos, 0.5);
+      const newPointId = `P${pointN++}`;
+      const newSegId = `s${objN++}`;
+      const newPoint = {
+        id: newPointId,
+        pos: { x: q.x + (foot.x - A.pos.x), y: q.y + (foot.y - A.pos.y) },
+        constraint: 'free',
+        role: 'libre',
+        visible: true,
+        locked: false,
+        showLabel: true,
+      } as const;
+      s.applyPoints({ ...s.points, [newPointId]: newPoint });
+      set({
+        segments: [...s.segments, { id: newSegId, a: through, b: newPointId, color: '#fbbf24', visible: true }],
+        drawn: { ...s.drawn, [newSegId]: 1 },
+      });
+    },
+
+    buildParallel: (baseA: string, baseB: string, guideId: string, offset: number) => {
+      const s = get();
+      const A = s.points[baseA];
+      const B = s.points[baseB];
+      const guide = s.points[guideId];
+      if (!A || !B || !guide) return;
+      s.snapshot();
+      const p = parallelPoint(A.pos, B.pos, guide.pos, offset);
+      const newPointId = `P${pointN++}`;
+      const newSegId = `s${objN++}`;
+      const newPoint = {
+        id: newPointId,
+        pos: p,
+        constraint: 'free',
+        role: 'libre',
+        visible: true,
+        locked: false,
+        showLabel: true,
+      } as const;
+      s.applyPoints({ ...s.points, [newPointId]: newPoint });
+      set({
+        segments: [...s.segments, { id: newSegId, a: guideId, b: newPointId, color: '#a78bfa', visible: true }],
+        drawn: { ...s.drawn, [newSegId]: 1 },
+      });
+    },
+
+    buildDistancePoint: (centerId: string, refId: string, radius: number) => {
+      const s = get();
+      const center = s.points[centerId];
+      const ref = s.points[refId];
+      if (!center || !ref) return;
+      s.snapshot();
+      const p = pointAtDistance(center.pos, ref.pos, radius);
+      const newPointId = `P${pointN++}`;
+      const newSegId = `s${objN++}`;
+      const newPoint = {
+        id: newPointId,
+        pos: p,
+        constraint: 'free',
+        role: 'libre',
+        visible: true,
+        locked: false,
+        showLabel: true,
+      } as const;
+      s.applyPoints({ ...s.points, [newPointId]: newPoint });
+      set({
+        segments: [...s.segments, { id: newSegId, a: centerId, b: newPointId, color: '#f59e0b', visible: true }],
+        drawn: { ...s.drawn, [newSegId]: 1 },
+      });
+    },
+
+    buildCircle: (centerId: string, refId: string, radiusOverride?: number) => {
+      const s = get();
+      const center = s.points[centerId];
+      const ref = s.points[refId];
+      if (!center || !ref) return;
+      const radius = radiusOverride ?? dist(center.pos, ref.pos);
+      const id = `c${objN++}`;
+      s.snapshot();
+      set({
+        circles: [...s.circles, { id, c: centerId, r: radius, visible: true }],
+        drawn: { ...s.drawn, [id]: 1 },
+      });
+    },
+
+    buildIntersection: (c1Id: string, c2Id: string, r1: number, r2: number) => {
+      const s = get();
+      const c1 = s.points[c1Id];
+      const c2 = s.points[c2Id];
+      if (!c1 || !c2) return;
+      const inter = circleIntersection(c1.pos, r1, c2.pos, r2);
+      if (!inter.length) return;
+      s.snapshot();
+      const add = inter.map((p) => {
+        const id = `P${pointN++}`;
+        return { id, pos: p, constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true } as const;
+      });
+      const points = { ...s.points };
+      for (const p of add) points[p.id] = p;
+      s.applyPoints(points);
     },
 
     addPointAt: (world) => {

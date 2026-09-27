@@ -98,6 +98,11 @@ export interface ObjectsSliceState {
   toggleLabel: (id: string) => void;
   setPointPos: (id: string, x: number, y: number) => void;
   setSegmentLen: (id: string, len: number) => void;
+  buildPerpendicular: (baseA: string, baseB: string, through: string, length: number) => void;
+  buildParallel: (baseA: string, baseB: string, guideId: string, offset: number) => void;
+  buildDistancePoint: (centerId: string, refId: string, radius: number) => void;
+  buildCircle: (centerId: string, refId: string, radiusOverride?: number) => void;
+  buildIntersection: (c1Id: string, c2Id: string, r1: number, r2: number) => void;
 }
 
 // ─── Cajón HISTORIAL: undo/redo + guardado ───────────────────
