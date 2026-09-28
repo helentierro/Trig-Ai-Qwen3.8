@@ -21,6 +21,8 @@ export const uiSlice = (set: StoreSet, get: StoreGet) => {
     aiCursor: { pos: { x: 0, y: 0 }, visible: false },
     subtitle: null, transcript: [] as string[], playing: false, voiceOn: false,
     celebration: null, gridMagnet: false, gridStyle: 'fine' as GridStyle,
+    decimals: 2 as 2 | 4,
+    measurement: null,
     menu: null, viewMenu: null, toast: null,
 
     toastMsg: (t: string) => {
@@ -44,6 +46,8 @@ export const uiSlice = (set: StoreSet, get: StoreGet) => {
 
     setGridMagnet: (b) => set({ gridMagnet: b }),
     setGridStyle: (s) => set({ gridStyle: s }),
+    setDecimals: (d: 2 | 4) => set({ decimals: d }),
+    setMeasurement: (m) => set({ measurement: m }),
 
     setChain: (b: boolean) => {
       const s = get();

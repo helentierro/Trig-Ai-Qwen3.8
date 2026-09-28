@@ -1,16 +1,38 @@
-// src/components/rooms/LaboratorioRoom.tsx — Fase 1: ala GeoGebra (placeholder online-only).
-// Puente GGB→IA (dirección acordada): lo que el niño toque en GeoGebra lo narra la tutora.
-// El embebido real (mathApps + material_id) llega en Fase 4; aquí queda el contrato:
-// simulator button emite evento 'ggb-update' al bus de la casa y la tutora lo narra.
-import { useEffect, useState } from 'react';
+// src/components/rooms/LaboratorioRoom.tsx — Fase 4/4: applet GeoGebra REAL embebido.
+// Online-only con fallback al Taller. Puente GGB→IA: cada update del applet lo narra la tutora.
+// Atribución requerida por licencia no-comercial: "Creado con GeoGebra®".
+import { useEffect, useRef, useState } from 'react';
 import { emitHouse, onHouseEvent } from '../../stores/houseStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { usePal } from '../../stores/themeStore';
+import {
+  GGB_MODULE_URL,
+  buildScene,
+  ggbUpdateToHouse,
+  narrationForGgb,
+  type GgbApi,
+} from '../../services/geogebraBridge';
+
+interface MathAppsModule {
+  mathApps: {
+    create: (params: Record<string, unknown>) => {
+      inject: (el: HTMLElement) => { getAPI: () => Promise<GgbApi> };
+    };
+  };
+}
+
+type Status = 'loading' | 'ready' | 'error';
+
+// La tutora narra como máximo 1 vez cada 10 s; el resto solo toast (evita spam al arrastrar).
+let lastNarrated = 0;
 
 export function LaboratorioRoom() {
   const pal = usePal();
+  const boxRef = useRef<HTMLDivElement>(null);
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const [status, setStatus] = useState<Status>('loading');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const up = () => setOnline(true);
@@ -23,20 +45,68 @@ export function LaboratorioRoom() {
     };
   }, []);
 
-  // Puente GGB→IA: cada 'ggb-update' la tutora lo narra en el chat + toast cálido.
+  // Puente GGB→IA: cada 'ggb-update' la tutora lo narra (con freno anti-spam) + toast.
   useEffect(() => {
     const off = onHouseEvent((e) => {
       if (e.type !== 'ggb-update') return;
-      useChatStore.getState().push('ia', `🧪 Vi que moviste ${e.obj} en el Laboratorio. ${e.detail ?? '¡Buen toque! ¿Qué cambió en la figura?'}`);
+      const now = Date.now();
+      if (now - lastNarrated > 10_000) {
+        lastNarrated = now;
+        useChatStore.getState().push('ia', narrationForGgb(e.obj));
+      }
       useCanvasStore.getState().toastMsg(`🧪 Laboratorio: ${e.obj} actualizado`);
     });
     return off;
   }, []);
 
-  const simulateTouch = () => {
-    // Simula lo que en Fase 4 enviará registerObjectUpdateListener("A", …) de GeoGebra.
-    emitHouse({ type: 'ggb-update', obj: 'punto A', detail: 'Arrastraste el vértice: el ángulo θ se movió contigo.' });
-  };
+  // Inyecta el applet real una vez (con limpieza para StrictMode).
+  useEffect(() => {
+    if (!online) return;
+    const el = boxRef.current;
+    if (!el) {
+      setStatus('error');
+      return;
+    }
+    let cancelled = false;
+    let api: GgbApi | null = null;
+    (async () => {
+      try {
+        const mod = (await import(/* @vite-ignore */ GGB_MODULE_URL)) as unknown as MathAppsModule;
+        if (cancelled) return;
+        const w = Math.max(320, el.clientWidth || 800);
+        const h = Math.max(320, el.clientHeight || 560);
+        api = await mod.mathApps
+          .create({
+            appName: 'geometry',
+            width: w,
+            height: h,
+            showToolBar: true,
+            showAlgebraInput: false,
+            showMenuBar: false,
+            enableShiftDragZoom: true,
+            language: 'es',
+          })
+          .inject(el)
+          .getAPI();
+        if (cancelled) {
+          api.remove();
+          return;
+        }
+        buildScene(api);
+        api.registerUpdateListener((objName: string) => {
+          emitHouse(ggbUpdateToHouse(objName));
+        });
+        setStatus('ready');
+      } catch {
+        if (!cancelled) setStatus('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      try { api?.remove(); } catch { /* silencioso */ }
+      el.innerHTML = '';
+    };
+  }, [online, attempt]);
 
   if (!online) {
     return (
@@ -50,20 +120,34 @@ export function LaboratorioRoom() {
     );
   }
 
+  if (status === 'error') {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 44 }}>🧪</div>
+        <strong>El laboratorio no cargó</strong>
+        <p style={{ color: pal.dim, maxWidth: 440, lineHeight: 1.5 }}>
+          GeoGebra no respondió. Revisa tu conexión o reintenta; el Taller sigue disponible.
+        </p>
+        <button
+          onClick={() => { setStatus('loading'); setAttempt((a) => a + 1); }}
+          style={{ padding: '10px 24px', borderRadius: 8, border: `1px solid ${pal.accent}`, background: pal.accent, color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+        >
+          🔄 Reintentar
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 44 }}>🧪</div>
-      <strong>Laboratorio GeoGebra</strong>
-      <p style={{ color: pal.dim, maxWidth: 480, lineHeight: 1.5 }}>
-        Aquí vivirá el applet embebido (geometry/graphing vía mathApps + material_id de trigonometría).
-        Fase 1 deja el contrato: cada toque en GeoGebra emite <code>ggb-update</code> y la tutora lo narra.
-      </p>
-      <button
-        onClick={simulateTouch}
-        style={{ padding: '10px 24px', borderRadius: 8, border: `1px solid ${pal.ia}`, background: 'transparent', color: pal.ia, fontWeight: 700, cursor: 'pointer' }}
-      >
-        ✨ Simular toque GeoGebra → la tutora narra
-      </button>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {status === 'loading' && (
+        <div style={{ padding: 12, color: pal.dim, fontSize: 12 }}>🧪 Cargando GeoGebra… (solo la primera vez tarda)</div>
+      )}
+      <div ref={boxRef} style={{ flex: 1, minHeight: 0 }} />
+      <div style={{ padding: '6px 12px', borderTop: `1px solid ${pal.border}`, color: pal.faint, fontSize: 11, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span>Creado con GeoGebra® — <a href="https://www.geogebra.org" target="_blank" rel="noreferrer" style={{ color: pal.accent }}>geogebra.org</a></span>
+        <span style={{ marginLeft: 'auto' }}>Mueve un punto: la tutora lo narra 🤖</span>
+      </div>
     </div>
   );
 }

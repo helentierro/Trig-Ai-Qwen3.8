@@ -1,6 +1,6 @@
 // src/stores/slices/objectsSlice.ts — scene graph: puntos/segmentos/círculos + herramientas
 import { clamp, niceGridStep } from '../../utils/coordinateTransform';
-import { circleIntersection, dist, hasTri, measure, parallelPoint, perpendicularPoint, pointAtDistance, pointOnSegment, rad } from '../../utils/geometry';
+import { angleAt, bisectorEndpoints, circleIntersection, dist, hasTri, measure, parallelPoint, perpendicularPoint, pointAtDistance, pointOnSegment, polygonPerimeter, rad, reflectPoint, rotatePoint } from '../../utils/geometry';
 import { KNOWLEDGE } from '../../data/knowledge';
 import { allDrawn, DEFAULT_WORLD, type CircleNode, type PointNode, type SegmentNode, type CanvasState, type StoreGet, type StoreSet } from './types';
 
@@ -174,8 +174,7 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
       });
     },
 
-    buildCircle: (centerId: string, refId: string, radiusOverride?: number) => {
-      const s = get();
+    buildCircle: (centerId: string, refId: string, radiusOverride?: number) => {      const s = get();
       const center = s.points[centerId];
       const ref = s.points[refId];
       if (!center || !ref) return;
@@ -186,6 +185,14 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
         circles: [...s.circles, { id, c: centerId, r: radius, visible: true }],
         drawn: { ...s.drawn, [id]: 1 },
       });
+    },
+
+    setCircleRadius: (id: string, r: number) => {
+      const s = get();
+      if (!s.circles.some((c) => c.id === id)) return;
+      if (!isFinite(r) || r <= 0) return;
+      s.snapshot();
+      set({ circles: s.circles.map((c) => (c.id === id ? { ...c, r } : c)) });
     },
 
     buildIntersection: (c1Id: string, c2Id: string, r1: number, r2: number) => {
@@ -203,6 +210,92 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
       const points = { ...s.points };
       for (const p of add) points[p.id] = p;
       s.applyPoints(points);
+    },
+
+    /** Intersección REAL: dos círculos con radios medidos (lente simétrica, construcción euclídea).
+     *  Reemplaza llamadas con radios mágicos: aquí r = dist(c1, c2), siempre consistente. */
+    buildCircleIntersection: (c1Id: string, c2Id: string) => {
+      const s = get();
+      const c1 = s.points[c1Id];
+      const c2 = s.points[c2Id];
+      if (!c1 || !c2) return;
+      const r = dist(c1.pos, c2.pos);
+      if (r < 1e-9) return;
+      const inter = circleIntersection(c1.pos, r, c2.pos, r);
+      if (!inter.length) return;
+      s.snapshot();
+      const id1 = `c${objN++}`, id2 = `c${objN++}`;
+      const points = { ...s.points };
+      for (const p of inter) {
+        const id = `P${pointN++}`;
+        points[id] = { id, pos: p, constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true };
+      }
+      set({
+        points, measures: measure(points), hasTriangle: hasTri(points),
+        circles: [...s.circles, { id: id1, c: c1Id, r, visible: true }, { id: id2, c: c2Id, r, visible: true }],
+        drawn: { ...s.drawn, [id1]: 1, [id2]: 1 },
+      });
+      s.toastMsg(`∩ Lente ${c1Id}–${c2Id} (r = ${Number(r.toFixed(s.decimals))}) + 2 intersecciones`);
+    },
+
+    buildMidpoint: (segId: string) => {
+      const s = get();
+      const seg = s.segments.find((x) => x.id === segId);
+      if (!seg || !s.points[seg.a] || !s.points[seg.b]) return;
+      s.snapshot();
+      const id = `P${pointN++}`;
+      const mid = pointOnSegment(s.points[seg.a].pos, s.points[seg.b].pos, 0.5);
+      s.applyPoints({
+        ...s.points,
+        [id]: { id, pos: mid, constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true },
+      });
+      s.toastMsg(`⦿ Punto medio ${id} de ${segId}`);
+    },
+
+    buildBisector: (segId: string) => {
+      const s = get();
+      const seg = s.segments.find((x) => x.id === segId);
+      if (!seg || !s.points[seg.a] || !s.points[seg.b]) return;
+      const [e1, e2] = bisectorEndpoints(s.points[seg.a].pos, s.points[seg.b].pos);
+      s.snapshot();
+      const idP = `P${pointN++}`, idQ = `P${pointN++}`, idS = `s${objN++}`;
+      const points = {
+        ...s.points,
+        [idP]: { id: idP, pos: e1, constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true } as const,
+        [idQ]: { id: idQ, pos: e2, constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true } as const,
+      };
+      set({
+        points, measures: measure(points), hasTriangle: hasTri(points),
+        segments: [...s.segments, { id: idS, a: idP, b: idQ, color: '#a78bfa', visible: true }],
+        drawn: { ...s.drawn, [idS]: 1 },
+      });
+      s.toastMsg(`✂️ Mediatriz de ${segId} (pasa por su punto medio, ⊥ al segmento)`);
+    },
+
+    reflectPointAcross: (pointId: string, aId: string, bId: string) => {
+      const s = get();
+      const p = s.points[pointId], A = s.points[aId], B = s.points[bId];
+      if (!p || !A || !B) return;
+      s.snapshot();
+      const id = `P${pointN++}`;
+      s.applyPoints({
+        ...s.points,
+        [id]: { id, pos: reflectPoint(p.pos, A.pos, B.pos), constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true },
+      });
+      s.toastMsg(`🪞 ${pointId} reflejado sobre ${aId}→${bId} = ${id}`);
+    },
+
+    rotatePointAround: (pointId: string, centerId: string, degAngle = 90) => {
+      const s = get();
+      const p = s.points[pointId], c = s.points[centerId];
+      if (!p || !c) return;
+      s.snapshot();
+      const id = `P${pointN++}`;
+      s.applyPoints({
+        ...s.points,
+        [id]: { id, pos: rotatePoint(p.pos, c.pos, degAngle), constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true },
+      });
+      s.toastMsg(`⟳ ${pointId} rotado ${degAngle}° sobre ${centerId} = ${id}`);
     },
 
     addPointAt: (world) => {
@@ -229,6 +322,56 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
           segments: [...s.segments, { id: sid, a: s.pending[0], b: id, color: '#94a3b8', visible: true }],
           drawn: { ...s.drawn, [sid]: 1 }, pending: [],
         });
+      } else if (s.tool === 'ruler') {
+        // 📏 Distancia: toca 2 puntos. El resultado queda en Medición (ToolsTab) + toast.
+        const pend = [...s.pending.filter((x) => s.points[x] && x !== id), id];
+        if (pend.length >= 2) {
+          const [a, b] = pend;
+          const d = dist(s.points[a].pos, s.points[b].pos);
+          set({ pending: [] });
+          s.pulse(b);
+          s.setMeasurement({ kind: 'distance', label: `d(${a}, ${b})`, value: d, unit: '' });
+          s.toastMsg(`📏 d(${a}, ${b}) = ${Number(d.toFixed(s.decimals))}`);
+        } else {
+          set({ pending: pend });
+          s.toastMsg(`📏 Toca el segundo punto (1/2)`);
+        }
+      } else if (s.tool === 'protractor') {
+        // 📐 Ángulo: toca 3 puntos; el vértice es el SEGUNDO.
+        const pend = [...s.pending.filter((x) => s.points[x] && x !== id), id];
+        if (pend.length >= 3) {
+          const [a, v, b] = pend;
+          const deg = angleAt(s.points[v].pos, s.points[a].pos, s.points[b].pos);
+          set({ pending: [] });
+          s.pulse(v);
+          s.setMeasurement({ kind: 'angle', label: `∠${a}${v}${b}`, value: deg, unit: '°' });
+          s.toastMsg(`📐 ∠${a}${v}${b} = ${Number(deg.toFixed(s.decimals))}°`);
+        } else {
+          set({ pending: pend });
+          s.toastMsg(pend.length === 1 ? `📐 Toca el VÉRTICE (2/3)` : `📐 Toca el tercer punto (3/3)`);
+        }
+      } else if (s.tool === 'polygon') {
+        // ⬠ Polígono: toca vértices; toca el PRIMERO para cerrar (mín. 3). Esc cancela.
+        const pend = s.pending.filter((x) => s.points[x]);
+        if (pend.length >= 3 && pend[0] === id) {
+          s.snapshot();
+          const segs = [...s.segments];
+          const drawn = { ...s.drawn };
+          const link = (a: string, b: string) => {
+            if (segs.some((g) => (g.a === a && g.b === b) || (g.a === b && g.b === a))) return;
+            const nid = `s${objN++}`;
+            segs.push({ id: nid, a, b, color: '#38bdf8', visible: true });
+            drawn[nid] = 1;
+          };
+          for (let i = 0; i < pend.length; i++) link(pend[i], pend[(i + 1) % pend.length]);
+          const per = polygonPerimeter(pend.map((p) => s.points[p].pos));
+          set({ segments: segs, drawn, pending: [] });
+          s.setMeasurement({ kind: 'perimeter', label: `per(${pend.join('')})`, value: per, unit: '' });
+          s.toastMsg(`⬠ Polígono de ${pend.length} lados · perímetro ${Number(per.toFixed(s.decimals))}`);
+        } else if (!pend.includes(id)) {
+          set({ pending: [...pend, id] });
+          s.toastMsg(pend.length === 0 ? `⬠ Vértice 1: sigue tocando puntos` : `⬠ Vértice ${pend.length + 1}: toca el primero (${pend[0]}) para cerrar`);
+        }
       } else if (s.tool === 'circle') {
         if (s.pending.length === 0) return set({ pending: [id] });
         const c = s.points[s.pending[0]];

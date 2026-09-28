@@ -1,13 +1,24 @@
 // src/components/panel/AlgebraPanel.tsx — Fase H: valores vivos y editables garantizados
+// Rigor Fase 1: identidades op/hip solo en triángulo rectángulo, suma precisa,
+// validación con aviso, precisión configurable, círculos editables.
 import { useState, type ReactNode } from 'react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { usePal } from '../../stores/themeStore';
 import { trigSummary } from '../../utils/geometry';
+import { extractNums } from '../../utils/expr';
 import { SectionTitle } from '../ui/primitives';
 
-const fmt = (n: number) => `${Number(n.toFixed(2))}`;
-const nums = (t: string) => (t.match(/-?\d+(\.\d+)?/g) || []).map(Number);
 const displayName = (id: string) => (id === 'height' ? 'altura' : id);
+
+/** Edita con validación: si no hay suficientes números, avisa en vez de ignorar en silencio. */
+function commitNums(label: string, v: string, need: number, fn: (n: number[]) => void) {
+  const n = extractNums(v);
+  if (n.length < need) {
+    useCanvasStore.getState().toastMsg(`⚠️ "${v}" no es válido para ${label}: escribe ${need === 1 ? 'un número' : 'dos números, ej. (50, 60)'}`);
+    return;
+  }
+  fn(n);
+}
 
 function EditValue({ id, value, onCommit }: { id: string; value: string; onCommit: (v: string) => void }) {
   const pal = usePal();
@@ -89,9 +100,16 @@ export function AlgebraBody() {
   const m = useCanvasStore((s) => s.measures);
   const hasTriangle = useCanvasStore((s) => s.hasTriangle);
   const chain = useCanvasStore((s) => s.chain);
+  const decimals = useCanvasStore((s) => s.decimals);
+  const setDecimals = useCanvasStore((s) => s.setDecimals);
   const pulse = useCanvasStore((s) => s.pulse);
   const st = () => useCanvasStore.getState();
   const trig = trigSummary(m);
+  const fmt = (n: number) => `${Number(n.toFixed(decimals))}`;
+  // Las identidades op/hip solo valen en triángulo rectángulo. Sin cadena, solo valores.
+  const right = chain || m.rightAngle;
+  const sumPrecise = m.angleDeg + m.angleB + m.angleA;
+  const sumOk = Math.abs(sumPrecise - 180) < 0.05;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 8px 0' }}>
@@ -106,7 +124,7 @@ export function AlgebraBody() {
             swatch={<span style={{ width: 10, height: 10, borderRadius: '50%', background: pal.panelBg, border: `2px solid ${pal.point}`, boxShadow: `0 0 0 2px ${pal.accent}20`, flexShrink: 0 }} />}
             title={p.id}
             value={`(${fmt(p.pos.x)}, ${fmt(p.pos.y)})`}
-            onCommit={(v) => { const n = nums(v); if (n.length >= 2) st().setPointPos(p.id, n[0], n[1]); }} />
+            onCommit={(v) => commitNums(`punto ${p.id}`, v, 2, (n) => st().setPointPos(p.id, n[0], n[1]))} />
         ))}
       </div>
 
@@ -120,7 +138,7 @@ export function AlgebraBody() {
               swatch={<span style={{ width: 18, height: 3, background: g.color, borderRadius: 999, flexShrink: 0 }} />}
               title={`${displayName(g.id)} = Seg(${g.a}, ${g.b})`}
               value={fmt(len)}
-              onCommit={(v) => { const n = nums(v); if (n.length) st().setSegmentLen(g.id, n[0]); }} />
+              onCommit={(v) => commitNums(`segmento ${displayName(g.id)}`, v, 1, (n) => st().setSegmentLen(g.id, n[0]))} />
           );
         })}
       </div>
@@ -130,9 +148,10 @@ export function AlgebraBody() {
           <SectionTitle>Círculos</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {circles.map((c) => (
-              <Row key={c.id} id={c.id} canHide
-                swatch={<span style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${pal.free}`, display: 'inline-block', flexShrink: 0 }} />}
-                title={`${c.id} = Círc(${c.c})`} value={`r ${fmt(c.r)}`} />
+            <Row key={c.id} id={c.id} canHide
+              swatch={<span style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${pal.free}`, display: 'inline-block', flexShrink: 0 }} />}
+              title={`${c.id} = Círc(${c.c})`} value={`r ${fmt(c.r)}`}
+              onCommit={(v) => commitNums(`radio ${c.id}`, v, 1, (n) => st().setCircleRadius(c.id, n[0]))} />
             ))}
           </div>
         </>
@@ -143,7 +162,7 @@ export function AlgebraBody() {
           <SectionTitle>Medidas</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Row id="angleO" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
-              onCommit={chain ? (v) => { const n = nums(v); if (n.length) st().setAngleDeg(n[0]); } : undefined} />
+              onCommit={chain ? (v) => commitNums('ángulo θ', v, 1, (n) => st().setAngleDeg(n[0])) : undefined} />
             <Row id="angleB" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
             <Row id="angleA" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="α (en A)" value={`${fmt(m.angleA)}°`} />
             <Row id="area" swatch={<span style={{ color: pal.accent, fontSize: 16 }}>▦</span>} title="área" value={fmt(m.area)} />
@@ -151,12 +170,35 @@ export function AlgebraBody() {
 
           <div style={{ marginTop: 8, padding: '10px 10px 6px', borderTop: `1px solid ${pal.border}`, display: 'grid', gap: 6 }}>
             <div style={{ color: pal.faint, fontSize: 11, fontFamily: 'monospace' }}>
-              {fmt(m.angleDeg)}° + {fmt(m.angleB)}° + {fmt(m.angleA)}° = 180° ✔
+              {fmt(m.angleDeg)}° + {fmt(m.angleB)}° + {fmt(m.angleA)}° = {sumPrecise.toFixed(2)}° {sumOk ? '✔' : '⚠️'}
             </div>
-            <div style={{ display: 'grid', gap: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace' }}>
-              <div>sin(θ) = op / hip = {fmt(m.height)} / {fmt(m.hyp)} = {trig.sin.toFixed(3)}</div>
-              <div>cos(θ) = ady / hip = {fmt(m.base)} / {fmt(m.hyp)} = {trig.cos.toFixed(3)}</div>
-              <div>tan(θ) = op / ady = {fmt(m.height)} / {fmt(m.base)} = {trig.tan.toFixed(3)}</div>
+            {right ? (
+              <div style={{ display: 'grid', gap: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace' }}>
+                <div>sin(θ) = op / hip = {fmt(m.height)} / {fmt(m.hyp)} = {trig.sin.toFixed(decimals + 1)}</div>
+                <div>cos(θ) = ady / hip = {fmt(m.base)} / {fmt(m.hyp)} = {trig.cos.toFixed(decimals + 1)}</div>
+                <div>tan(θ) = op / ady = {fmt(m.height)} / {fmt(m.base)} = {trig.tan.toFixed(decimals + 1)}</div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 4, color: pal.bubbleText, fontSize: 11.5, fontFamily: 'monospace' }}>
+                <div>sin(θ) = {trig.sin.toFixed(decimals + 1)} · cos(θ) = {trig.cos.toFixed(decimals + 1)} · tan(θ) = {trig.tan.toFixed(decimals + 1)}</div>
+                <div style={{ color: pal.faint, fontSize: 10.5, fontFamily: 'system-ui' }}>
+                  op/hip solo vale en triángulo rectángulo — activa ⛓️ Cadena para verlo.
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+              <span style={{ color: pal.faint, fontSize: 10.5 }}>Decimales:</span>
+              {([2, 4] as const).map((d) => (
+                <button key={d} onClick={() => setDecimals(d)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                    border: `1px solid ${decimals === d ? pal.accent : pal.border}`,
+                    background: decimals === d ? 'rgba(56,189,248,.10)' : 'transparent',
+                    color: decimals === d ? pal.accent : pal.dim,
+                  }}>
+                  {d}
+                </button>
+              ))}
             </div>
           </div>
 

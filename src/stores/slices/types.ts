@@ -15,8 +15,14 @@ export interface Measures {
   angleDeg: number; angleB: number; angleA: number;
   area: number; rightAngle: boolean;
 }
-export type Tool = 'move' | 'point' | 'segment' | 'circle';
+export type Tool = 'move' | 'point' | 'segment' | 'circle' | 'ruler' | 'protractor' | 'polygon';
 export type GridStyle = 'fine' | 'large' | 'circular' | 'diamond' | 'blank';
+export interface Measurement {
+  kind: 'distance' | 'angle' | 'perimeter';
+  label: string;
+  value: number;
+  unit: string;
+}
 export interface Snapshot { points: Record<string, PointNode>; segments: SegmentNode[]; circles: CircleNode[]; }
 export interface SaveSlot { at: number; world: Snapshot; }
 
@@ -102,6 +108,12 @@ export interface ObjectsSliceState {
   buildParallel: (baseA: string, baseB: string, guideId: string, offset: number) => void;
   buildDistancePoint: (centerId: string, refId: string, radius: number) => void;
   buildCircle: (centerId: string, refId: string, radiusOverride?: number) => void;
+  setCircleRadius: (id: string, r: number) => void;
+  buildMidpoint: (segId: string) => void;
+  buildBisector: (segId: string) => void;
+  reflectPointAcross: (pointId: string, aId: string, bId: string) => void;
+  rotatePointAround: (pointId: string, centerId: string, degAngle?: number) => void;
+  buildCircleIntersection: (c1Id: string, c2Id: string) => void;
   buildIntersection: (c1Id: string, c2Id: string, r1: number, r2: number) => void;
 }
 
@@ -132,6 +144,10 @@ export interface UISliceState {
   playing: boolean;
   voiceOn: boolean;
   celebration: string | null;
+  decimals: 2 | 4;
+  setDecimals: (d: 2 | 4) => void;
+  measurement: Measurement | null;
+  setMeasurement: (m: Measurement | null) => void;
   gridMagnet: boolean;
   gridStyle: GridStyle;
   menu: { id: string; x: number; y: number } | null;

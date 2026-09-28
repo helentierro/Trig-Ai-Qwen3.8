@@ -4,7 +4,7 @@
 // Funciones 1 arg: sin cos tan asin acos atan sqrt abs round floor ceil log ln
 // Funciones N args: min max (la Hoja emite Math.min/Math.max y aquí se entienden)
 
-const FUNCS1: Record<string, (v: number) => number> = {
+const FUNCS1_DEG: Record<string, (v: number) => number> = {
   sin: (d) => Math.sin((d * Math.PI) / 180),
   cos: (d) => Math.cos((d * Math.PI) / 180),
   tan: (d) => Math.tan((d * Math.PI) / 180),
@@ -19,6 +19,29 @@ const FUNCS1: Record<string, (v: number) => number> = {
   log: Math.log10,
   ln: Math.log,
 };
+
+const FUNCS1_RAD: Record<string, (v: number) => number> = {
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  asin: Math.asin,
+  acos: Math.acos,
+  atan: Math.atan,
+  sqrt: Math.sqrt,
+  abs: Math.abs,
+  round: Math.round,
+  floor: Math.floor,
+  ceil: Math.ceil,
+  log: Math.log10,
+  ln: Math.log,
+};
+
+/** Modo angular de la calculadora: grados (aula, defecto) o radianes (nivel GeoGebra). */
+export type AngleMode = 'deg' | 'rad';
+
+/** Extrae los números de un texto libre ("(50, 60)" → [50, 60]). Vacío si no hay. */
+export const extractNums = (t: string): number[] =>
+  (t.match(/-?\d+(\.\d+)?/g) || []).map(Number);
 
 const FUNCSN: Record<string, (vals: number[]) => number> = {
   min: (vals) => Math.min(...vals),
@@ -79,9 +102,11 @@ class Parser {
   private pos = 0;
   private tokens: Token[];
   private vars: Record<string, number>;
-  constructor(tokens: Token[], vars: Record<string, number>) {
+  private funcs1: Record<string, (v: number) => number>;
+  constructor(tokens: Token[], vars: Record<string, number>, angle: AngleMode = 'deg') {
     this.tokens = tokens;
     this.vars = vars;
+    this.funcs1 = angle === 'rad' ? FUNCS1_RAD : FUNCS1_DEG;
   }
   private peek(): Token | undefined { return this.tokens[this.pos]; }
   private consume(): Token { return this.tokens[this.pos++]; }
@@ -175,7 +200,7 @@ class Parser {
         }
         const rp = this.consume();
         if (!rp || rp.kind !== 'rp') throw new Error('missing )');
-        const f1 = FUNCS1[t.v];
+        const f1 = this.funcs1[t.v];
         if (f1) {
           if (args.length !== 1) throw new Error('arity');
           return f1(args[0]);
@@ -195,11 +220,11 @@ class Parser {
   }
 }
 
-export function evalExpr(src: string, vars: Record<string, number> = {}): number | null {
+export function evalExpr(src: string, vars: Record<string, number> = {}, opts: { angle?: AngleMode } = {}): number | null {
   if (!src || typeof src !== 'string') return null;
   const tokens = tokenize(src);
   if (!tokens || tokens.length === 0) return null;
-  return new Parser(tokens, vars).parse();
+  return new Parser(tokens, vars, opts.angle ?? 'deg').parse();
 }
 
 export const fmtN = (n: number): string => {

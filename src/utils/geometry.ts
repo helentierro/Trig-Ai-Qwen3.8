@@ -115,3 +115,45 @@ export const pointOnSegment = (A: Vec2, B: Vec2, t: number): Vec2 => ({
 });
 
 export const hasTri = (pts: Record<string, PointNode>) => !!(pts.O && pts.B && pts.A);
+
+/** Refleja P respecto a la recta que pasa por A y B. */
+export const reflectPoint = (P: Vec2, A: Vec2, B: Vec2): Vec2 => {
+  const dx = B.x - A.x, dy = B.y - A.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-12) return { ...P };
+  const t = ((P.x - A.x) * dx + (P.y - A.y) * dy) / lenSq;
+  const q = { x: A.x + t * dx, y: A.y + t * dy };
+  return { x: 2 * q.x - P.x, y: 2 * q.y - P.y };
+};
+
+/** Rota P alrededor de C por `degAngle` grados (antihorario). */
+export const rotatePoint = (P: Vec2, C: Vec2, degAngle: number): Vec2 => {
+  const r = rad(degAngle);
+  const dx = P.x - C.x, dy = P.y - C.y;
+  return {
+    x: C.x + dx * Math.cos(r) - dy * Math.sin(r),
+    y: C.y + dx * Math.sin(r) + dy * Math.cos(r),
+  };
+};
+
+/** Extremos de la mediatriz de AB (longitud = |AB|, centrada en el punto medio). */
+export const bisectorEndpoints = (A: Vec2, B: Vec2): [Vec2, Vec2] => {
+  const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+  const dx = B.x - A.x, dy = B.y - A.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-9) return [{ x: mx, y: my }, { x: mx, y: my }];
+  const half = len / 2;
+  const nx = -dy / len, ny = dx / len;
+  return [
+    { x: mx + nx * half, y: my + ny * half },
+    { x: mx - nx * half, y: my - ny * half },
+  ];
+};
+
+/** Perímetro de un polígono cerrado (último punto se une al primero). */
+export const polygonPerimeter = (pts: Vec2[]): number => {
+  if (pts.length < 3) return 0;
+  let p = 0;
+  for (let i = 0; i < pts.length; i++) p += dist(pts[i], pts[(i + 1) % pts.length]);
+  return p;
+};

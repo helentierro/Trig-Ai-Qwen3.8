@@ -1,11 +1,13 @@
 // src/components/panel/TableTab.tsx — Fase H: tabla dinámica + calculadora real + gráfica
+// Rigor Fase 1: modo angular °/rad explícito (GeoGebra lo exige; aquí visible, no escondido).
 import { useMemo, useState } from 'react';
-import { evalExpr, fmtN } from '../../utils/expr';
+import { evalExpr, fmtN, type AngleMode } from '../../utils/expr';
 import { usePal } from '../../stores/themeStore';
 import { SectionTitle, TextInput, Btn } from '../ui/primitives';
 
 export function TableTab() {
   const pal = usePal();
+  const [angle, setAngle] = useState<AngleMode>('deg');
   const [calc, setCalc] = useState('sin(45) * 10');
   const [hist, setHist] = useState<{ e: string; r: number }[]>([]);
   const [fx, setFx] = useState('tan(x)');
@@ -14,15 +16,15 @@ export function TableTab() {
   const [to, setTo] = useState('80');
   const [step, setStep] = useState('10');
 
-  const calcRes = useMemo(() => evalExpr(calc), [calc]);
+  const calcRes = useMemo(() => evalExpr(calc, {}, { angle }), [calc, angle]);
   const rows = useMemo(() => {
-    const a = evalExpr(from) ?? 0, b = evalExpr(to) ?? 10, h = Math.abs(evalExpr(step) ?? 1) || 1;
+    const a = evalExpr(from, {}, { angle }) ?? 0, b = evalExpr(to, {}, { angle }) ?? 10, h = Math.abs(evalExpr(step, {}, { angle }) ?? 1) || 1;
     const out: { x: number; f: number | null; g: number | null }[] = [];
     for (let x = a; x <= b + 1e-9 && out.length < 200; x += h) {
-      out.push({ x, f: evalExpr(fx, { x }), g: gx.trim() ? evalExpr(gx, { x }) : null });
+      out.push({ x, f: evalExpr(fx, { x }, { angle }), g: gx.trim() ? evalExpr(gx, { x }, { angle }) : null });
     }
     return out;
-  }, [fx, gx, from, to, step]);
+  }, [fx, gx, from, to, step, angle]);
 
   // mini-gráfica SVG (normalizada)
   const graph = useMemo(() => {
@@ -42,6 +44,21 @@ export function TableTab() {
   return (
     <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <SectionTitle>Calculadora de álgebra</SectionTitle>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ color: pal.faint, fontSize: 10.5 }}>Ángulo:</span>
+        {(['deg', 'rad'] as const).map((m) => (
+          <button key={m} onClick={() => setAngle(m)}
+            title={m === 'deg' ? 'Grados (aula)' : 'Radianes (nivel GeoGebra)'}
+            style={{
+              padding: '3px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+              border: `1px solid ${angle === m ? pal.accent : pal.border}`,
+              background: angle === m ? 'rgba(56,189,248,.10)' : 'transparent',
+              color: angle === m ? pal.accent : pal.dim,
+            }}>
+            {m === 'deg' ? '° grados' : 'rad'}
+          </button>
+        ))}
+      </div>
       <TextInput value={calc} onChange={setCalc}
         onEnter={() => { if (calcRes !== null) setHist([{ e: calc, r: calcRes }, ...hist].slice(0, 8)); }}
         placeholder="ej: sin(45) * 10 · sqrt(2)^2 · tan(30)" />
@@ -60,7 +77,7 @@ export function TableTab() {
           ))}
         </div>
       )}
-      <div style={{ color: pal.faint, fontSize: 10.5 }}>sin cos tan (grados) · asin acos atan · sqrt abs round log ln · pi, e · ^</div>
+      <div style={{ color: pal.faint, fontSize: 10.5 }}>sin cos tan ({angle === 'deg' ? 'grados' : 'radianes'}) · asin acos atan · sqrt abs round log ln · pi, e · ^</div>
 
       <SectionTitle>Tabla de funciones</SectionTitle>
       <TextInput value={fx} onChange={setFx} placeholder="f(x) = ej: tan(x)" />
