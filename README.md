@@ -32,7 +32,7 @@ Backend:
 ```bash
 cp api/.env.example api/.env   # nunca commitear .env
 pip install -r api/requirements.txt
-python api/main.py             # ws://localhost:8000/ws/tutor
+python -m uvicorn main:app --port 8000   # desde la carpeta api/ → ws://localhost:8000/ws/tutor
 ```
 
 ## Variables de entorno y claves
