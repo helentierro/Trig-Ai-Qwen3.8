@@ -23,8 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# secrets
+# secrets — nunca commitear claves reales (solo *.example con placeholders)
 .env
+.env.local
+.env.*.local
+api/.env
 
 # python
 .venv/
