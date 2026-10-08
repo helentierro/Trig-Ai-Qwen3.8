@@ -6,8 +6,11 @@ import { useThemeStore } from '../../stores/themeStore';
 const TOOLS: { id: Tool; icon: string; label: string }[] = [
   { id: 'move', icon: '🖐', label: 'Mover / arrastrar' },
   { id: 'point', icon: '📍', label: 'Crear punto (clic en el vacío)' },
-  { id: 'segment', icon: '📏', label: 'Segmento (clic en dos puntos)' },
+  { id: 'segment', icon: '🔗', label: 'Segmento (clic en dos puntos)' },
   { id: 'circle', icon: '⭕', label: 'Círculo (clic centro + clic radio)' },
+  { id: 'ruler', icon: '📏', label: 'Regla (clic en 2 puntos)' },
+  { id: 'protractor', icon: '📐', label: 'Transportador (3 puntos, vértice 2º)' },
+  { id: 'polygon', icon: '⬠', label: 'Polígono (cierra en el 1º)' },
 ];
 
 export function ToolPalette() {
@@ -16,8 +19,6 @@ export function ToolPalette() {
   const loadWorld = useCanvasStore((s) => s.loadWorld);
   const gridMagnet = useCanvasStore((s) => s.gridMagnet);
   const setGridMagnet = useCanvasStore((s) => s.setGridMagnet);
-  const chain = useCanvasStore((s) => s.chain);
-  const setChain = useCanvasStore((s) => s.setChain);
   const undo = useCanvasStore((s) => s.undo);
   const redo = useCanvasStore((s) => s.redo);
   const saveWorld = useCanvasStore((s) => s.saveWorld);
@@ -52,7 +53,6 @@ export function ToolPalette() {
       {TOOLS.map((t) => (
         <button key={t.id} title={t.label} onClick={() => setTool(t.id)} style={style(tool === t.id)}>{t.icon}</button>
       ))}
-      <button title="Cadena: triángulo rectángulo" onClick={() => setChain(!chain)} style={style(chain)}>⛓️</button>
       <button title="Imán a la grilla (opcional)" onClick={() => setGridMagnet(!gridMagnet)} style={style(gridMagnet)}>🧲</button>
       <button title="Volver al triángulo (limpia lo construido)" onClick={() => loadWorld(null)} style={style(false)}>🧹</button>
       <div style={{ height: 4 }} />

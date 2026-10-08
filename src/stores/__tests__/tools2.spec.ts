@@ -49,6 +49,19 @@ describe('polígono', () => {
   });
 });
 
+describe('fijar recto (asistencia, no modo)', () => {
+  it('fixRight endereza B a 90° y activa el trabajo recto', () => {
+    st().dragTo('B', { x: 60, y: 25 });
+    expect(st().measures.rightAngle).toBe(false);
+    st().fixRight();
+    expect(st().measures.rightAngle).toBe(true);
+    expect(st().points.B.pos.y).toBeCloseTo(st().points.O.pos.y, 9);
+    expect(st().chain).toBe(true);
+    st().setChain(false);
+    expect(st().chain).toBe(false);
+  });
+});
+
 describe('construcción sobre la selección', () => {
   it('buildMidpoint crea el punto medio de base', () => {
     const n0 = Object.keys(st().points).length;

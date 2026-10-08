@@ -1,3 +1,5 @@
+// ARCHIVADA Fase A: la Sala Docente sale del nav por simplicidad (el docente orquesta
+// desde Herramientas → Sesión). Se conserva el archivo en git por si vuelve en Fase B.
 // src/components/rooms/SalaRoom.tsx — Fase 1: Sala Docente (Classroom-lite, placeholder).
 // Fase 5 la completa: código de lección, progreso, exam-mode. Aquí: orquesta básica.
 import { useCanvasStore } from '../../stores/canvasStore';

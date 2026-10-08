@@ -138,7 +138,9 @@ export function TriangleCanvas() {
                     strokeOpacity={0.6} strokeWidth={2} className={pulseId === p.id ? 'glow-pulse' : undefined} />
                 )}
                 <circle data-testid={`pt-${p.id}`} cx={sp.x} cy={sp.y} r={(active ? 8 : 6) * pop} fill={C.bg} stroke={p.locked ? '#fbbf24' : C.point} strokeWidth={2.5} />
-                {pop >= 1 && p.showLabel && <text x={sp.x + off.x} y={sp.y + off.y} fill={C.text} fontSize={12} fontFamily="monospace">{p.id}</text>}
+                {/* Diana invisible: el hit usa el DOM real, nunca matemática duplicada */}
+                <circle data-hit={p.id} cx={sp.x} cy={sp.y} r={16} fill="transparent" />
+                {pop >= 1 && p.showLabel && <text data-hit={p.id} x={sp.x + off.x} y={sp.y + off.y} fill={C.text} fontSize={12} fontFamily="monospace">{p.id}</text>}
                 {p.locked && <text x={sp.x + 10} y={sp.y - 10} fontSize={11}>🔒</text>}
               </g>
             );

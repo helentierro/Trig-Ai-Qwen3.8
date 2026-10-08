@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useCanvasStore, type GridStyle, type Tool } from '../../stores/canvasStore';
 import { useThemeStore, usePal } from '../../stores/themeStore';
 import { extractNums } from '../../utils/expr';
+import { runConstruction } from '../../services/scenePlayer';
 import { TextInput } from '../ui/primitives';
 
 const TOOLS: { id: Tool; icon: string; name: string; desc: string }[] = [
@@ -64,6 +65,8 @@ export function ToolsTab() {
   const circles = useCanvasStore((s) => s.circles);
   const measurement = useCanvasStore((s) => s.measurement);
   const decimals = useCanvasStore((s) => s.decimals);
+  const voiceOn = useCanvasStore((s) => s.voiceOn);
+  const playing = useCanvasStore((s) => s.playing);
   const mode = useThemeStore((t) => t.mode);
   const cycle = useThemeStore((t) => t.cycle);
   const [perpOff, setPerpOff] = useState('10');
@@ -127,7 +130,10 @@ export function ToolsTab() {
 
       <H>Modo</H>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Item icon="⛓️" name="Cadena rectangular" desc="O→B horizontal, B→A vertical, imán ⚡" active={chain} onClick={() => st().setChain(!chain)} />
+        <Item icon="📐" name={chain ? 'Liberar (soltar recto)' : 'Fijar recto'} desc="Endereza B a 90° · asistencia, no modo" active={chain} onClick={() => {
+          if (chain) st().setChain(false);
+          else st().fixRight();
+        }} />
         <Item icon="🧲" name="Imán a la grilla" desc="Ajusta arrastres y puntos nuevos" active={gridMagnet} onClick={() => st().setGridMagnet(!gridMagnet)} />
       </div>
 
@@ -250,6 +256,12 @@ export function ToolsTab() {
         <Item icon="💾" name="Guardar mundo" desc={`${saves.length}/5 slots usados`} onClick={() => st().saveWorld()} />
         <Item icon="↩️" name="Deshacer" desc="Ctrl+Z" onClick={() => st().undo()} />
         <Item icon="↪️" name="Rehacer" desc="Ctrl+Y" onClick={() => st().redo()} />
+      </div>
+
+      <H>Sesión (docente)</H>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Item icon="🔊" name={voiceOn ? 'Voz: encendida' : 'Voz: apagada'} desc="La tutora narra en voz alta" active={voiceOn} onClick={() => st().setVoiceOn(!voiceOn)} />
+        <Item icon="🎬" name={playing ? 'Construyendo…' : 'Construcción IA'} desc="La tutora dibuja el triángulo" active={false} onClick={() => runConstruction()} />
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ export function HouseLayout({
             <button
               key={r.id}
               title={r.hint}
-              style={navBtn(room === r.id, r.id === 'laboratorio' ? '#a78bfa' : r.id === 'sala' ? '#fbbf24' : pal.accent)}
+              style={navBtn(room === r.id, r.id === 'laboratorio' ? '#a78bfa' : pal.accent)}
               onClick={() => go(r.id)}
             >
               {r.icon} {r.label}

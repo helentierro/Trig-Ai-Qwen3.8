@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type ReactNode, type PointerEvent as React
 import { useCanvasStore } from '../../stores/canvasStore';
 import { type Vec2, screenToWorld } from '../../utils/coordinateTransform';
 
-const HIT_RADIUS = 18;
 const TAP_PX = 4;      // menos de esto = clic (abre menú), no arrastre
 const TAP_MS = 400;
 
@@ -24,19 +23,19 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
+  // Hit por verdad del DOM (elementFromPoint sobre [data-hit]): inmune a derivas
+  // entre la cámara y el layout. La matemática screenToWorld solo mueve, nunca acierta.
   const hitTest = (pt: Vec2): string | null => {
-    const { points, camera, playing } = useCanvasStore.getState();
-    if (playing) return null;
-    for (const p of Object.values(points)) {
-      if (!p.visible) continue;
-      const sp = screenToWorld(pt, camera);
-      const wp = p.pos;
-      const sx = wp.x * camera.zoom + camera.panX;
-      const sy = -wp.y * camera.zoom + camera.panY;
-      void sp;
-      if (Math.hypot(sx - pt.x, sy - pt.y) <= HIT_RADIUS) return p.id;
-    }
-    return null;
+    const st = useCanvasStore.getState();
+    if (st.playing) return null;
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return null;
+    const el = document.elementFromPoint(r.left + pt.x, r.top + pt.y);
+    const hit = el?.closest?.('[data-hit]') as Element | null;
+    const id = hit?.getAttribute('data-hit');
+    if (!id) return null;
+    const p = st.points[id];
+    return p && p.visible ? id : null;
   };
 
   const clearLp = () => {
@@ -45,7 +44,9 @@ export function InteractionLayer({ children }: { children: ReactNode }) {
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button === 2) return; // clic derecho → onContextMenu
-    ref.current?.setPointerCapture(e.pointerId);
+    // setPointerCapture puede lanzar (carrera con el puntero en headless):
+    // nunca debe abortar el beginDrag de abajo.
+    try { ref.current?.setPointerCapture(e.pointerId); } catch { /* sin captura: los eventos siguen burbujeando */ }
     const pt = localPt(e);
     pointers.current.set(e.pointerId, pt);
     const st = useCanvasStore.getState();

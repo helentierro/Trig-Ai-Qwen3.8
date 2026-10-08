@@ -22,15 +22,17 @@ test('libertad: arrastrar A NO mueve B (bug 1 de la Fase G, muerto)', async ({ p
   expect(rowB1).toEqual(rowB0);
 });
 
-test('cadena ⛓️: con cadena ON, arrastrar B arrastra a A', async ({ page }) => {
+test('fijar recto 📐: endereza B y arrastrar B arrastra a A', async ({ page }) => {
   await page.goto('/');
-  await page.getByTitle('Cadena: triángulo rectángulo').click();
+  await page.getByRole('button', { name: '🛠' }).click();
+  await page.getByText('Fijar recto').click();
   const b = page.locator('[data-testid="pt-B"]');
   const bb = await b.boundingBox();
   await page.mouse.move(bb!.x + bb!.width / 2, bb!.y + bb!.height / 2);
   await page.mouse.down();
   await page.mouse.move(bb!.x - 120, bb!.y + bb!.height / 2, { steps: 12 });
   await page.mouse.up();
+  await page.getByRole('button', { name: '∑' }).click();
   const rowA = (await page.locator('[data-testid="row-A"]').textContent())!;
   const rowB = (await page.locator('[data-testid="row-B"]').textContent())!;
   const ax = Number(rowA.match(/\(([-\d.]+),/)![1]);
@@ -49,7 +51,7 @@ test('undo: crear punto y Ctrl+Z lo elimina', async ({ page }) => {
 
 test('mundo puente: la biblioteca carga la celosía', async ({ page }) => {
   await page.goto('/');
-  await page.getByText('📚 Descubrir').click();
+  await page.getByText('📚 Biblioteca').click();
   await page.getByText('El puente de triángulos').click();
   await page.getByText('🎬 Entrar a este mundo').click();
   await expect(page.locator('[data-testid="row-b0"]')).toBeVisible();

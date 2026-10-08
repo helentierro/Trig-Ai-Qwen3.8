@@ -114,6 +114,8 @@ export interface ObjectsSliceState {
   reflectPointAcross: (pointId: string, aId: string, bId: string) => void;
   rotatePointAround: (pointId: string, centerId: string, degAngle?: number) => void;
   buildCircleIntersection: (c1Id: string, c2Id: string) => void;
+  /** Asistencia "fijar recto": endereza B a 90° sin modo global. Reemplaza el toggle cadena. */
+  fixRight: () => void;
   buildIntersection: (c1Id: string, c2Id: string, r1: number, r2: number) => void;
 }
 

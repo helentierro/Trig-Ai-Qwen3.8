@@ -8,13 +8,11 @@ import { usePal } from './stores/themeStore';
 import { useTeachableMoments } from './hooks/useTeachableMoments';
 import { startChallengeWatcher } from './stores/challengeStore';
 import { HouseLayout } from './components/layout/HouseLayout';
-import { TeacherControls } from './components/controls/TeacherControls';
 import { TallerFooter } from './components/controls/TallerFooter';
 import { TallerRoom } from './components/rooms/TallerRoom';
 import { BibliotecaRoom } from './components/rooms/BibliotecaRoom';
 import { LaboratorioRoom } from './components/rooms/LaboratorioRoom';
 import { MesaRoom } from './components/rooms/MesaRoom';
-import { SalaRoom } from './components/rooms/SalaRoom';
 
 interface EBProps { children: ReactNode; }
 interface EBState { hasError: boolean; error: Error | null; }
@@ -101,7 +99,6 @@ function AppInner() {
 
   return (
     <HouseLayout
-      controls={<TeacherControls />}
       footer={room === 'taller' ? <TallerFooter /> : undefined}
     >
       <Suspense fallback={<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.dim }}>Cargando habitación…</div>}>
@@ -109,7 +106,6 @@ function AppInner() {
         {room === 'biblioteca' && <BibliotecaRoom />}
         {room === 'laboratorio' && <LaboratorioRoom />}
         {room === 'mesa' && <MesaRoom />}
-        {room === 'sala' && <SalaRoom />}
       </Suspense>
       {toast && (
         <div style={{ position: 'fixed', bottom: 60, right: 20, background: pal.card, border: `1px solid ${pal.border}`, color: pal.bubbleText, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, zIndex: 70, pointerEvents: 'none' }}>

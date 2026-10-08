@@ -171,7 +171,7 @@ export function runConstruction() {
   const st = useCanvasStore.getState();
   if (st.playing) return;
   if (!st.hasTriangle) st.loadWorld(null);
-  if (!useCanvasStore.getState().chain) useCanvasStore.getState().setChain(true);
+  useCanvasStore.getState().fixRight();
   useCanvasStore.getState().resetConstruction();
   void playScene(buildTriangleScript());
 }

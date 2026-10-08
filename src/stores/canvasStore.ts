@@ -20,6 +20,11 @@ export function initDefaultWorld() {
   if (!Object.keys(s.points).length) s.loadWorld(null);
 }
 
+// Gancho e2e/debug (como el ggbApplet global de GeoGebra): expone el store en window.__trig.
+if (typeof window !== 'undefined') {
+  (window as unknown as { __trig?: typeof useCanvasStore }).__trig = useCanvasStore;
+}
+
 // re-exports estables (componentes/services no cambian sus imports)
 export { onCanvasEvent };
 export type {

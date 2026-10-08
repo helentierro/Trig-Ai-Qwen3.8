@@ -69,7 +69,8 @@ describe('variables del mundo (lienzo→hoja)', () => {
 describe('CSV ida y vuelta', () => {
   it('exporta solo hasta la última fila usada y cita comas/comillas', () => {
     const csv = exportCsv({ A1: '1', B1: 'hola, mundo', C1: 'dice "hi"', A3: 'x' });
-    expect(csv).toBe('1,"hola, mundo","dice ""hi""",,,,,,,\n,,,,,,,,,\nx,,,,,,,,,');
+    // Excel 2.0: recorta columnas vacías al final (interoperable con Excel real)
+    expect(csv).toBe('1,"hola, mundo","dice ""hi"""\n,,\nx,,');
   });
   it('importa respetando citas y límites de la grilla', () => {
     const raw = importCsv('1,"a,b"\n=c1*2,');

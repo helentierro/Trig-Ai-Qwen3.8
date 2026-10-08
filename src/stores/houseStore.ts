@@ -2,14 +2,13 @@
 // El lienzo pasa a ser una habitación (Taller). Aditivo: no toca canvasStore ni sus slices.
 import { create } from 'zustand';
 
-export type RoomId = 'taller' | 'biblioteca' | 'laboratorio' | 'mesa' | 'sala';
+export type RoomId = 'taller' | 'biblioteca' | 'laboratorio' | 'mesa';
 
 export const ROOMS: { id: RoomId; icon: string; label: string; hint: string }[] = [
   { id: 'taller', icon: '📐', label: 'Taller', hint: 'mundo libre — toca, construye, descubre' },
   { id: 'biblioteca', icon: '📚', label: 'Biblioteca', hint: 'mundos con historia + retos' },
   { id: 'laboratorio', icon: '🧪', label: 'Laboratorio', hint: 'ala GeoGebra (requiere internet)' },
   { id: 'mesa', icon: '🧮', label: 'Mesa', hint: 'tabla + hoja de cálculo' },
-  { id: 'sala', icon: '👩‍🏫', label: 'Sala docente', hint: 'orquesta la sesión del aula' },
 ];
 
 // ─── Bus de eventos de la casa (extiende la idea de onCanvasEvent a toda la casa) ───

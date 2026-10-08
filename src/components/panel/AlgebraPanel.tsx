@@ -99,7 +99,7 @@ export function AlgebraBody() {
   const circles = useCanvasStore((s) => s.circles);
   const m = useCanvasStore((s) => s.measures);
   const hasTriangle = useCanvasStore((s) => s.hasTriangle);
-  const chain = useCanvasStore((s) => s.chain);
+  const right = useCanvasStore((s) => s.chain || s.measures.rightAngle);
   const decimals = useCanvasStore((s) => s.decimals);
   const setDecimals = useCanvasStore((s) => s.setDecimals);
   const pulse = useCanvasStore((s) => s.pulse);
@@ -107,7 +107,6 @@ export function AlgebraBody() {
   const trig = trigSummary(m);
   const fmt = (n: number) => `${Number(n.toFixed(decimals))}`;
   // Las identidades op/hip solo valen en triángulo rectángulo. Sin cadena, solo valores.
-  const right = chain || m.rightAngle;
   const sumPrecise = m.angleDeg + m.angleB + m.angleA;
   const sumOk = Math.abs(sumPrecise - 180) < 0.05;
 
@@ -162,7 +161,7 @@ export function AlgebraBody() {
           <SectionTitle>Medidas</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Row id="angleO" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="θ (en O)" value={`${fmt(m.angleDeg)}°`}
-              onCommit={chain ? (v) => commitNums('ángulo θ', v, 1, (n) => st().setAngleDeg(n[0])) : undefined} />
+              onCommit={right ? (v) => commitNums('ángulo θ', v, 1, (n) => st().setAngleDeg(n[0])) : undefined} />
             <Row id="angleB" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∟</span>} title="ángulo en B" value={`${fmt(m.angleB)}°`} />
             <Row id="angleA" swatch={<span style={{ color: pal.angle, fontSize: 16 }}>∠</span>} title="α (en A)" value={`${fmt(m.angleA)}°`} />
             <Row id="area" swatch={<span style={{ color: pal.accent, fontSize: 16 }}>▦</span>} title="área" value={fmt(m.area)} />

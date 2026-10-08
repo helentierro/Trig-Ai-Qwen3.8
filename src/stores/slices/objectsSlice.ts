@@ -285,8 +285,7 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
       s.toastMsg(`🪞 ${pointId} reflejado sobre ${aId}→${bId} = ${id}`);
     },
 
-    rotatePointAround: (pointId: string, centerId: string, degAngle = 90) => {
-      const s = get();
+    rotatePointAround: (pointId: string, centerId: string, degAngle = 90) => {      const s = get();
       const p = s.points[pointId], c = s.points[centerId];
       if (!p || !c) return;
       s.snapshot();
@@ -296,6 +295,22 @@ export const objectsSlice = (set: StoreSet, get: StoreGet) => {
         [id]: { id, pos: rotatePoint(p.pos, c.pos, degAngle), constraint: 'free', role: 'libre', visible: true, locked: false, showLabel: true },
       });
       s.toastMsg(`⟳ ${pointId} rotado ${degAngle}° sobre ${centerId} = ${id}`);
+    },
+
+    fixRight: () => {
+      const s = get();
+      if (!s.hasTriangle || !s.points.O || !s.points.B || !s.points.A) return;
+      s.snapshot();
+      const O = s.points.O.pos, B = s.points.B.pos, A = s.points.A.pos;
+      const nb = { x: B.x, y: O.y };
+      const h = Math.abs(A.y - B.y) || Math.abs(A.y - O.y) || 20;
+      s.applyPoints({
+        ...s.points,
+        B: { ...s.points.B, pos: nb },
+        A: { ...s.points.A, pos: { x: nb.x, y: O.y + h } },
+      });
+      set({ chain: true });
+      s.toastMsg('📐 Recto fijado en B — Libera para soltar');
     },
 
     addPointAt: (world) => {
