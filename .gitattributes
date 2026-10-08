@@ -1,0 +1,19 @@
+# Normalizacion de fin de linea.
+# Sin esto, core.autocrlf=true reescribe los archivos al tocarlos y cada
+# `git add` produce un diff gigante de solo espacios que esconde el diff real.
+#Aqui LF se guarda en el repositorio y el arbol de trabajo usa el nativo.
+* text=auto
+
+# Binarios: nunca convertir.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.mp4 binary
+*.webm binary
+*.pdf binary
